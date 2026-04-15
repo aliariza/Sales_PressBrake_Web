@@ -30,6 +30,14 @@ app.use(
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 
+app.get("/", (_req, res) => {
+  res.json({
+    name: "Sales PressBrake API",
+    status: "ok",
+    health: "/api/health"
+  });
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
@@ -42,6 +50,12 @@ app.use("/api/toolings", toolingRoutes);
 app.use("/api/options", optionRoutes);
 app.use("/api/quotes", quoteRoutes);
 app.use("/api/recommendations", recommendationRoutes);
+
+app.use("/api", (_req, res) => {
+  res.status(404).json({
+    message: "API endpoint not found"
+  });
+});
 
 app.use(errorHandler);
 
