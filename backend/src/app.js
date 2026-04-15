@@ -15,7 +15,18 @@ import { env } from "./config/env.js";
 
 const app = express();
 
-app.use(cors({ origin: env.corsOrigin, credentials: true }));
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || env.corsOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS origin not allowed"));
+    },
+    credentials: true
+  })
+);
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 
