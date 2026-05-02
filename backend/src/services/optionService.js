@@ -1,21 +1,28 @@
-import mongoose from "mongoose";
+import {
+  createOption as createOptionInDb,
+  deleteOption as deleteOptionFromDb,
+  getAllOptions,
+  getOptionByCode,
+  getOptionById as getOptionByIdFromDb,
+  updateOption as updateOptionInDb
+} from "../repositories/optionRepository.js";
 
-import { Option } from "../models/Option.js";
+function parseUuid(id) {
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function toOptionDto(option) {
-  return {
-    id: option._id.toString(),
-    legacyNo: option.legacyNo || "",
-    code: option.code,
-    name: option.name,
-    priceUsd: option.priceUsd,
-    createdAt: option.createdAt,
-    updatedAt: option.updatedAt
-  };
+  if (!uuidPattern.test(id)) {
+    const error = new Error("Geçersiz opsiyon kimliği");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return id;
 }
 
 function parsePositiveNumber(value, fieldName) {
   const number = Number(value);
+
   if (!Number.isFinite(number) || number <= 0) {
     const error = new Error(`${fieldName} 0'dan büyük bir sayı olmalıdır`);
     error.statusCode = 400;
@@ -26,13 +33,10 @@ function parsePositiveNumber(value, fieldName) {
 }
 
 async function findByIdOrThrow(id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    const error = new Error("Geçersiz opsiyon kimliği");
-    error.statusCode = 400;
-    throw error;
-  }
+  const parsedId = parseUuid(id);
 
-  const option = await Option.findById(id);
+  const option = await getOptionByIdFromDb(parsedId);
+
   if (!option) {
     const error = new Error("Opsiyon bulunamadı");
     error.statusCode = 404;
@@ -43,8 +47,9 @@ async function findByIdOrThrow(id) {
 }
 
 async function ensureCodeAvailable(code, excludedId = null) {
-  const existing = await Option.findOne({ code });
-  if (existing && existing._id.toString() !== excludedId) {
+  const existing = await getOptionByCode(code);
+
+  if (existing && existing.id !== excludedId) {
     const error = new Error("Bu kod başka bir opsiyon tarafından kullanılıyor");
     error.statusCode = 409;
     throw error;
@@ -68,7 +73,7 @@ function normalizeOptionPayload(payload) {
   }
 
   return {
-    legacyNo: payload.legacyNo?.trim() || "",
+    legacyNo: payload.legacyNo?.toString().trim() || "",
     code,
     name,
     priceUsd: parsePositiveNumber(payload.priceUsd, "Fiyat")
@@ -76,37 +81,37 @@ function normalizeOptionPayload(payload) {
 }
 
 export async function listOptions() {
-  const options = await Option.find().sort({ createdAt: 1 });
-  return options.map(toOptionDto);
+  return getAllOptions();
 }
 
 export async function getOptionById(id) {
-  const option = await findByIdOrThrow(id);
-  return toOptionDto(option);
+  return findByIdOrThrow(id);
 }
 
 export async function createOption(payload) {
   const normalized = normalizeOptionPayload(payload);
+
   await ensureCodeAvailable(normalized.code);
 
-  const option = await Option.create(normalized);
-  return toOptionDto(option);
+  return createOptionInDb(normalized);
 }
 
 export async function updateOption(id, payload) {
-  const option = await findByIdOrThrow(id);
+  const parsedId = parseUuid(id);
+  await findByIdOrThrow(parsedId);
+
   const normalized = normalizeOptionPayload(payload);
 
-  await ensureCodeAvailable(normalized.code, option._id.toString());
+  await ensureCodeAvailable(normalized.code, parsedId);
 
-  Object.assign(option, normalized);
-  await option.save();
-
-  return toOptionDto(option);
+  return updateOptionInDb(parsedId, normalized);
 }
 
 export async function deleteOption(id) {
-  const option = await findByIdOrThrow(id);
-  await option.deleteOne();
+  const parsedId = parseUuid(id);
+  await findByIdOrThrow(parsedId);
+
+  await deleteOptionFromDb(parsedId);
+
   return { success: true };
 }

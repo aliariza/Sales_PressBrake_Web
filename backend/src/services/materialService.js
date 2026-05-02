@@ -1,26 +1,27 @@
-import mongoose from "mongoose";
+import {
+  createMaterial as createMaterialInDb,
+  deleteMaterial as deleteMaterialFromDb,
+  getAllMaterials,
+  getMaterialById as getMaterialByIdFromDb,
+  updateMaterial as updateMaterialInDb
+} from "../repositories/materialRepository.js";
 
-import { Material } from "../models/Material.js";
+function parseUuid(id) {
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function toMaterialDto(material) {
-  return {
-    id: material._id.toString(),
-    legacyNo: material.legacyNo || "",
-    name: material.name,
-    tensileStrengthMPa: material.tensileStrengthMPa,
-    yieldStrengthMPa: material.yieldStrengthMPa,
-    kFactorDefault: material.kFactorDefault,
-    youngsModulusMPa: material.youngsModulusMPa,
-    recommendedVdieFactor: material.recommendedVdieFactor,
-    minThicknessMm: material.minThicknessMm,
-    maxThicknessMm: material.maxThicknessMm,
-    createdAt: material.createdAt,
-    updatedAt: material.updatedAt
-  };
+  if (!uuidPattern.test(id)) {
+    const error = new Error("Geçersiz malzeme kimliği");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return id;
 }
 
 function parsePositiveNumber(value, fieldName) {
   const number = Number(value);
+
   if (!Number.isFinite(number) || number <= 0) {
     const error = new Error(`${fieldName} 0'dan büyük bir sayı olmalıdır`);
     error.statusCode = 400;
@@ -32,6 +33,7 @@ function parsePositiveNumber(value, fieldName) {
 
 function parseBoundedNumber(value, fieldName, min, max) {
   const number = Number(value);
+
   if (!Number.isFinite(number) || number < min || number > max) {
     const error = new Error(`${fieldName} ${min} ile ${max} arasında olmalıdır`);
     error.statusCode = 400;
@@ -42,13 +44,10 @@ function parseBoundedNumber(value, fieldName, min, max) {
 }
 
 async function findByIdOrThrow(id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    const error = new Error("Geçersiz malzeme kimliği");
-    error.statusCode = 400;
-    throw error;
-  }
+  const parsedId = parseUuid(id);
 
-  const material = await Material.findById(id);
+  const material = await getMaterialByIdFromDb(parsedId);
+
   if (!material) {
     const error = new Error("Malzeme bulunamadı");
     error.statusCode = 404;
@@ -60,28 +59,60 @@ async function findByIdOrThrow(id) {
 
 function normalizeMaterialPayload(payload) {
   const name = payload.name?.trim();
+
   if (!name) {
     const error = new Error("Ad zorunludur");
     error.statusCode = 400;
     throw error;
   }
 
-  const tensileStrengthMPa = parsePositiveNumber(payload.tensileStrengthMPa, "Çekme dayanımı");
-  const yieldStrengthMPa = parsePositiveNumber(payload.yieldStrengthMPa, "Akma dayanımı");
-  const kFactorDefault = parseBoundedNumber(payload.kFactorDefault, "K faktörü", 0, 1);
-  const youngsModulusMPa = parsePositiveNumber(payload.youngsModulusMPa, "Young modülü");
-  const recommendedVdieFactor = parsePositiveNumber(payload.recommendedVdieFactor, "Önerilen V-kalıp faktörü");
-  const minThicknessMm = parsePositiveNumber(payload.minThicknessMm, "Minimum kalınlık");
-  const maxThicknessMm = parsePositiveNumber(payload.maxThicknessMm, "Maksimum kalınlık");
+  const tensileStrengthMPa = parsePositiveNumber(
+    payload.tensileStrengthMPa,
+    "Çekme dayanımı"
+  );
+
+  const yieldStrengthMPa = parsePositiveNumber(
+    payload.yieldStrengthMPa,
+    "Akma dayanımı"
+  );
+
+  const kFactorDefault = parseBoundedNumber(
+    payload.kFactorDefault,
+    "K faktörü",
+    0,
+    1
+  );
+
+  const youngsModulusMPa = parsePositiveNumber(
+    payload.youngsModulusMPa,
+    "Young modülü"
+  );
+
+  const recommendedVdieFactor = parsePositiveNumber(
+    payload.recommendedVdieFactor,
+    "Önerilen V-kalıp faktörü"
+  );
+
+  const minThicknessMm = parsePositiveNumber(
+    payload.minThicknessMm,
+    "Minimum kalınlık"
+  );
+
+  const maxThicknessMm = parsePositiveNumber(
+    payload.maxThicknessMm,
+    "Maksimum kalınlık"
+  );
 
   if (maxThicknessMm < minThicknessMm) {
-    const error = new Error("Maksimum kalınlık minimum kalınlığa eşit veya daha büyük olmalıdır");
+    const error = new Error(
+      "Maksimum kalınlık minimum kalınlığa eşit veya daha büyük olmalıdır"
+    );
     error.statusCode = 400;
     throw error;
   }
 
   return {
-    legacyNo: payload.legacyNo?.trim() || "",
+    legacyNo: payload.legacyNo?.toString().trim() || "",
     name,
     tensileStrengthMPa,
     yieldStrengthMPa,
@@ -94,33 +125,31 @@ function normalizeMaterialPayload(payload) {
 }
 
 export async function listMaterials() {
-  const materials = await Material.find().sort({ createdAt: 1 });
-  return materials.map(toMaterialDto);
+  return getAllMaterials();
 }
 
 export async function getMaterialById(id) {
-  const material = await findByIdOrThrow(id);
-  return toMaterialDto(material);
+  return findByIdOrThrow(id);
 }
 
 export async function createMaterial(payload) {
   const normalized = normalizeMaterialPayload(payload);
-  const material = await Material.create(normalized);
-  return toMaterialDto(material);
+  return createMaterialInDb(normalized);
 }
 
 export async function updateMaterial(id, payload) {
-  const material = await findByIdOrThrow(id);
+  const parsedId = parseUuid(id);
+  await findByIdOrThrow(parsedId);
+
   const normalized = normalizeMaterialPayload(payload);
-
-  Object.assign(material, normalized);
-  await material.save();
-
-  return toMaterialDto(material);
+  return updateMaterialInDb(parsedId, normalized);
 }
 
 export async function deleteMaterial(id) {
-  const material = await findByIdOrThrow(id);
-  await material.deleteOne();
+  const parsedId = parseUuid(id);
+  await findByIdOrThrow(parsedId);
+
+  await deleteMaterialFromDb(parsedId);
+
   return { success: true };
 }

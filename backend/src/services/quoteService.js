@@ -1,64 +1,77 @@
-import mongoose from "mongoose";
+import {
+  countQuotesByCodePrefix,
+  createQuote as createQuoteInDb,
+  deleteQuote as deleteQuoteFromDb,
+  getAllQuotes,
+  getQuoteById as getQuoteByIdFromDb
+} from "../repositories/quoteRepository.js";
 
-import { Machine } from "../models/Machine.js";
-import { Material } from "../models/Material.js";
-import { Option } from "../models/Option.js";
-import { Quote } from "../models/Quote.js";
-import { Tooling } from "../models/Tooling.js";
+import {
+  getAllMachines,
+  getMachineById as getMachineByIdFromDb
+} from "../repositories/machineRepository.js";
 
-function toQuoteDto(quote) {
-  return {
-    id: quote._id.toString(),
-    legacyNo: quote.legacyNo || "",
-    quoteCode: quote.quoteCode,
-    customer: quote.customer,
-    materialId: quote.materialId,
-    materialNameSnapshot: quote.materialNameSnapshot,
-    thicknessMm: quote.thicknessMm,
-    bendLengthMm: quote.bendLengthMm,
-    machineId: quote.machineId,
-    machineModelSnapshot: quote.machineModelSnapshot,
-    toolingId: quote.toolingId,
-    toolingNameSnapshot: quote.toolingNameSnapshot,
-    selectedOptions: quote.selectedOptions || [],
-    machinePriceUsd: quote.machinePriceUsd,
-    optionsTotalUsd: quote.optionsTotalUsd,
-    grandTotalUsd: quote.grandTotalUsd,
-    notes: quote.notes || "",
-    createdAtLegacy: quote.createdAtLegacy || "",
-    createdAt: quote.createdAt,
-    updatedAt: quote.updatedAt
-  };
+import {
+  getAllMaterials,
+  getMaterialById as getMaterialByIdFromDb
+} from "../repositories/materialRepository.js";
+
+import {
+  getAllOptions,
+  getOptionByCode,
+  getOptionById as getOptionByIdFromDb
+} from "../repositories/optionRepository.js";
+
+import {
+  getAllToolings,
+  getToolingById as getToolingByIdFromDb
+} from "../repositories/toolingRepository.js";
+
+function isUuid(id) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    id
+  );
 }
 
-function parsePositiveNumber(value, fieldName) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number <= 0) {
-    const error = new Error(`${fieldName} 0'dan büyük bir sayı olmalıdır`);
-    error.statusCode = 400;
-    throw error;
-  }
-  return number;
-}
-
-function parseNonNegativeNumber(value, fieldName) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < 0) {
-    const error = new Error(`${fieldName} 0 veya daha büyük bir sayı olmalıdır`);
-    error.statusCode = 400;
-    throw error;
-  }
-  return number;
-}
-
-async function findByIdOrThrow(id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
+function parseUuid(id) {
+  if (!isUuid(id)) {
     const error = new Error("Geçersiz teklif kimliği");
     error.statusCode = 400;
     throw error;
   }
 
-  const quote = await Quote.findById(id);
+  return id;
+}
+
+function parsePositiveNumber(value, fieldName) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number <= 0) {
+    const error = new Error(`${fieldName} 0'dan büyük bir sayı olmalıdır`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return number;
+}
+
+function parseNonNegativeNumber(value, fieldName) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number < 0) {
+    const error = new Error(`${fieldName} 0 veya daha büyük bir sayı olmalıdır`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return number;
+}
+
+async function findByIdOrThrow(id) {
+  const parsedId = parseUuid(id);
+
+  const quote = await getQuoteByIdFromDb(parsedId);
+
   if (!quote) {
     const error = new Error("Teklif bulunamadı");
     error.statusCode = 404;
@@ -72,28 +85,32 @@ async function generateQuoteCode() {
   const datePart = new Date().toISOString().slice(0, 10).replaceAll("-", "");
   const prefix = `Q-${datePart}-`;
 
-  const todayQuotes = await Quote.countDocuments({
-    quoteCode: { $regex: `^${prefix}` }
-  });
+  const todayQuotesCount = await countQuotesByCodePrefix(prefix);
 
-  return `${prefix}${todayQuotes + 1}`;
+  return `${prefix}${todayQuotesCount + 1}`;
 }
 
 async function resolveMaterial(materialId, materialNameSnapshot) {
-  if (materialId && mongoose.Types.ObjectId.isValid(materialId)) {
-    const material = await Material.findById(materialId).lean();
+  if (materialId && isUuid(materialId)) {
+    const material = await getMaterialByIdFromDb(materialId);
+
     if (material) {
       return {
-        materialId: material._id,
+        materialId: material.id,
         materialNameSnapshot: material.name
       };
     }
   }
 
   if (materialNameSnapshot?.trim()) {
-    const material = await Material.findOne({ name: materialNameSnapshot.trim() }).lean();
+    const allMaterials = await getAllMaterials();
+    const material = allMaterials.find(
+      (item) =>
+        item.name.toLowerCase() === materialNameSnapshot.trim().toLowerCase()
+    );
+
     return {
-      materialId: material?._id ?? null,
+      materialId: material?.id ?? null,
       materialNameSnapshot: material?.name ?? materialNameSnapshot.trim()
     };
   }
@@ -104,11 +121,12 @@ async function resolveMaterial(materialId, materialNameSnapshot) {
 }
 
 async function resolveMachine(machineId, machineModelSnapshot, machinePriceUsdRaw) {
-  if (machineId && mongoose.Types.ObjectId.isValid(machineId)) {
-    const machine = await Machine.findById(machineId).lean();
+  if (machineId && isUuid(machineId)) {
+    const machine = await getMachineByIdFromDb(machineId);
+
     if (machine) {
       return {
-        machineId: machine._id,
+        machineId: machine.id,
         machineModelSnapshot: machine.model,
         machinePriceUsd: machine.basePriceUSD
       };
@@ -116,10 +134,15 @@ async function resolveMachine(machineId, machineModelSnapshot, machinePriceUsdRa
   }
 
   if (machineModelSnapshot?.trim()) {
-    const machine = await Machine.findOne({ model: machineModelSnapshot.trim() }).lean();
+    const allMachines = await getAllMachines();
+    const machine = allMachines.find(
+      (item) =>
+        item.model.toLowerCase() === machineModelSnapshot.trim().toLowerCase()
+    );
+
     if (machine) {
       return {
-        machineId: machine._id,
+        machineId: machine.id,
         machineModelSnapshot: machine.model,
         machinePriceUsd: machine.basePriceUSD
       };
@@ -134,20 +157,26 @@ async function resolveMachine(machineId, machineModelSnapshot, machinePriceUsdRa
 }
 
 async function resolveTooling(toolingId, toolingNameSnapshot) {
-  if (toolingId && mongoose.Types.ObjectId.isValid(toolingId)) {
-    const tooling = await Tooling.findById(toolingId).lean();
+  if (toolingId && isUuid(toolingId)) {
+    const tooling = await getToolingByIdFromDb(toolingId);
+
     if (tooling) {
       return {
-        toolingId: tooling._id,
+        toolingId: tooling.id,
         toolingNameSnapshot: tooling.name
       };
     }
   }
 
   if (toolingNameSnapshot?.trim()) {
-    const tooling = await Tooling.findOne({ name: toolingNameSnapshot.trim() }).lean();
+    const allToolings = await getAllToolings();
+    const tooling = allToolings.find(
+      (item) =>
+        item.name.toLowerCase() === toolingNameSnapshot.trim().toLowerCase()
+    );
+
     return {
-      toolingId: tooling?._id ?? null,
+      toolingId: tooling?.id ?? null,
       toolingNameSnapshot: tooling?.name ?? toolingNameSnapshot.trim()
     };
   }
@@ -167,15 +196,18 @@ async function resolveSelectedOptions(selectedOptions) {
     const name = entry.name?.trim() || "";
 
     let optionDoc = null;
-    if (entry.optionId && mongoose.Types.ObjectId.isValid(entry.optionId)) {
-      optionDoc = await Option.findById(entry.optionId).lean();
+
+    if (entry.optionId && isUuid(entry.optionId)) {
+      optionDoc = await getOptionByIdFromDb(entry.optionId);
     } else if (code) {
-      optionDoc = await Option.findOne({ code }).lean();
+      optionDoc = await getOptionByCode(code);
     }
 
     const resolvedCode = optionDoc?.code ?? code;
     const resolvedName = optionDoc?.name ?? name;
-    const priceUsd = optionDoc?.priceUsd ?? parseNonNegativeNumber(entry.priceUsd || 0, "Opsiyon fiyatı");
+    const priceUsd =
+      optionDoc?.priceUsd ??
+      parseNonNegativeNumber(entry.priceUsd || 0, "Opsiyon fiyatı");
 
     if (!resolvedCode || !resolvedName) {
       const error = new Error("Her seçili opsiyon bir kod ve ad içermelidir");
@@ -184,8 +216,9 @@ async function resolveSelectedOptions(selectedOptions) {
     }
 
     optionsTotalUsd += priceUsd;
+
     normalized.push({
-      optionId: optionDoc?._id ?? null,
+      optionId: optionDoc?.id ?? null,
       code: resolvedCode,
       name: resolvedName,
       priceUsd
@@ -202,7 +235,9 @@ function normalizeCustomer(customer) {
   const taxOffice = customer?.taxOffice?.trim();
 
   if (!name || !address || !tel || !taxOffice) {
-    const error = new Error("Müşteri adı, adres, telefon ve vergi dairesi zorunludur");
+    const error = new Error(
+      "Müşteri adı, adres, telefon ve vergi dairesi zorunludur"
+    );
     error.statusCode = 400;
     throw error;
   }
@@ -218,34 +253,46 @@ function normalizeCustomer(customer) {
 }
 
 export async function listQuotes() {
-  const quotes = await Quote.find().sort({ createdAt: -1 });
-  return quotes.map(toQuoteDto);
+  return getAllQuotes();
 }
 
 export async function getQuoteById(id) {
-  const quote = await findByIdOrThrow(id);
-  return toQuoteDto(quote);
+  return findByIdOrThrow(id);
 }
 
 export async function createQuote(payload) {
   const customer = normalizeCustomer(payload.customer);
+
   const thicknessMm = parsePositiveNumber(payload.thicknessMm, "Kalınlık");
   const bendLengthMm = parsePositiveNumber(payload.bendLengthMm, "Büküm boyu");
 
-  const material = await resolveMaterial(payload.materialId, payload.materialNameSnapshot);
+  const material = await resolveMaterial(
+    payload.materialId,
+    payload.materialNameSnapshot
+  );
+
   const machine = await resolveMachine(
     payload.machineId,
     payload.machineModelSnapshot,
     payload.machinePriceUsd
   );
-  const tooling = await resolveTooling(payload.toolingId, payload.toolingNameSnapshot);
+
+  const tooling = await resolveTooling(
+    payload.toolingId,
+    payload.toolingNameSnapshot
+  );
+
   const options = await resolveSelectedOptions(payload.selectedOptions);
 
-  const machinePriceUsd = parseNonNegativeNumber(machine.machinePriceUsd, "Makine fiyatı");
+  const machinePriceUsd = parseNonNegativeNumber(
+    machine.machinePriceUsd,
+    "Makine fiyatı"
+  );
+
   const grandTotalUsd = machinePriceUsd + options.optionsTotalUsd;
 
-  const quote = await Quote.create({
-    legacyNo: payload.legacyNo?.trim() || "",
+  return createQuoteInDb({
+    legacyNo: payload.legacyNo?.toString().trim() || "",
     quoteCode: payload.quoteCode?.trim() || (await generateQuoteCode()),
     customer,
     materialId: material.materialId,
@@ -263,12 +310,13 @@ export async function createQuote(payload) {
     notes: payload.notes?.trim() || "",
     createdAtLegacy: payload.createdAtLegacy?.trim() || new Date().toISOString()
   });
-
-  return toQuoteDto(quote);
 }
 
 export async function deleteQuote(id) {
-  const quote = await findByIdOrThrow(id);
-  await quote.deleteOne();
+  const parsedId = parseUuid(id);
+  await findByIdOrThrow(parsedId);
+
+  await deleteQuoteFromDb(parsedId);
+
   return { success: true };
 }

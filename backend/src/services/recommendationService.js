@@ -1,17 +1,44 @@
-import { Machine } from "../models/Machine.js";
-import { Option } from "../models/Option.js";
-import { Tooling } from "../models/Tooling.js";
+import { getAllMachines } from "../repositories/machineRepository.js";
+import { getAllOptions } from "../repositories/optionRepository.js";
+import { getAllToolings } from "../repositories/toolingRepository.js";
+
+function parsePositiveNumber(value, fieldName) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number <= 0) {
+    const error = new Error(`${fieldName} 0'dan büyük bir sayı olmalıdır`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return number;
+}
 
 export async function buildRecommendations({ thicknessMm, bendLengthMm }) {
-  const machines = await Machine.find({
-    maxThicknessMm: { $gte: thicknessMm },
-    workingLengthMm: { $gte: bendLengthMm }
-  })
-    .sort({ maxThicknessMm: 1, workingLengthMm: 1, basePriceUSD: 1 })
-    .lean();
+  const parsedThicknessMm = parsePositiveNumber(thicknessMm, "Kalınlık");
+  const parsedBendLengthMm = parsePositiveNumber(bendLengthMm, "Bükme boyu");
 
-  const targetVdie = thicknessMm * 8;
-  const toolingCandidates = await Tooling.find().lean();
+  const allMachines = await getAllMachines();
+
+  const machines = allMachines
+    .filter((machine) => {
+      return (
+        machine.maxThicknessMm >= parsedThicknessMm &&
+        machine.workingLengthMm >= parsedBendLengthMm
+      );
+    })
+    .sort((a, b) => {
+      return (
+        a.maxThicknessMm - b.maxThicknessMm ||
+        a.workingLengthMm - b.workingLengthMm ||
+        a.basePriceUSD - b.basePriceUSD
+      );
+    });
+
+  const targetVdie = parsedThicknessMm * 8;
+
+  const toolingCandidates = await getAllToolings();
+
   const toolings = toolingCandidates
     .map((tooling) => ({
       tooling,
@@ -22,7 +49,7 @@ export async function buildRecommendations({ thicknessMm, bendLengthMm }) {
     .slice(0, 5)
     .map(({ diff, ...rest }) => rest);
 
-  const options = await Option.find().sort({ code: 1 }).lean();
+  const options = await getAllOptions();
 
   return {
     machines: machines.map((machine) => ({

@@ -1,23 +1,14 @@
-import mongoose from "mongoose";
-
-import { Machine } from "../models/Machine.js";
-
-function toMachineDto(machine) {
-  return {
-    id: machine._id.toString(),
-    legacyNo: machine.legacyNo || "",
-    model: machine.model,
-    maxTonnageTonf: machine.maxTonnageTonf,
-    workingLengthMm: machine.workingLengthMm,
-    maxThicknessMm: machine.maxThicknessMm,
-    basePriceUSD: machine.basePriceUSD,
-    createdAt: machine.createdAt,
-    updatedAt: machine.updatedAt
-  };
-}
+import {
+  createMachine as createMachineInDb,
+  deleteMachine as deleteMachineFromDb,
+  getAllMachines,
+  getMachineById as getMachineByIdFromDb,
+  updateMachine as updateMachineInDb
+} from "../repositories/machineRepository.js";
 
 function parsePositiveNumber(value, fieldName) {
   const number = Number(value);
+
   if (!Number.isFinite(number) || number <= 0) {
     const error = new Error(`${fieldName} 0'dan büyük bir sayı olmalıdır`);
     error.statusCode = 400;
@@ -27,25 +18,22 @@ function parsePositiveNumber(value, fieldName) {
   return number;
 }
 
-async function findByIdOrThrow(id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
+function parseUuid(id) {
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (!uuidPattern.test(id)) {
     const error = new Error("Geçersiz makine kimliği");
     error.statusCode = 400;
     throw error;
   }
 
-  const machine = await Machine.findById(id);
-  if (!machine) {
-    const error = new Error("Makine bulunamadı");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return machine;
+  return id;
 }
 
 function normalizeMachinePayload(payload) {
   const model = payload.model?.trim();
+
   if (!model) {
     const error = new Error("Model zorunludur");
     error.statusCode = 400;
@@ -62,34 +50,46 @@ function normalizeMachinePayload(payload) {
   };
 }
 
+async function findByIdOrThrow(id) {
+  const parsedId = parseUuid(id);
+
+  const machine = await getMachineByIdFromDb(parsedId);
+
+  if (!machine) {
+    const error = new Error("Makine bulunamadı");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return machine;
+}
+
 export async function listMachines() {
-  const machines = await Machine.find().sort({ createdAt: 1 });
-  return machines.map(toMachineDto);
+  return getAllMachines();
 }
 
 export async function getMachineById(id) {
-  const machine = await findByIdOrThrow(id);
-  return toMachineDto(machine);
+  return findByIdOrThrow(id);
 }
 
 export async function createMachine(payload) {
   const normalized = normalizeMachinePayload(payload);
-  const machine = await Machine.create(normalized);
-  return toMachineDto(machine);
+  return createMachineInDb(normalized);
 }
 
 export async function updateMachine(id, payload) {
-  const machine = await findByIdOrThrow(id);
+  const parsedId = parseUuid(id);
+  await findByIdOrThrow(parsedId);
+
   const normalized = normalizeMachinePayload(payload);
-
-  Object.assign(machine, normalized);
-  await machine.save();
-
-  return toMachineDto(machine);
+  return updateMachineInDb(parsedId, normalized);
 }
 
 export async function deleteMachine(id) {
-  const machine = await findByIdOrThrow(id);
-  await machine.deleteOne();
+  const parsedId = parseUuid(id);
+  await findByIdOrThrow(parsedId);
+
+  await deleteMachineFromDb(parsedId);
+
   return { success: true };
 }

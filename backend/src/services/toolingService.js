@@ -1,22 +1,27 @@
-import mongoose from "mongoose";
+import {
+  createTooling as createToolingInDb,
+  deleteTooling as deleteToolingFromDb,
+  getAllToolings,
+  getToolingById as getToolingByIdFromDb,
+  updateTooling as updateToolingInDb
+} from "../repositories/toolingRepository.js";
 
-import { Tooling } from "../models/Tooling.js";
+function parseUuid(id) {
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function toToolingDto(tooling) {
-  return {
-    id: tooling._id.toString(),
-    legacyNo: tooling.legacyNo || "",
-    name: tooling.name,
-    vDieMm: tooling.vDieMm,
-    punchRadiusMm: tooling.punchRadiusMm,
-    dieRadiusMm: tooling.dieRadiusMm,
-    createdAt: tooling.createdAt,
-    updatedAt: tooling.updatedAt
-  };
+  if (!uuidPattern.test(id)) {
+    const error = new Error("Geçersiz takım kimliği");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return id;
 }
 
 function parsePositiveNumber(value, fieldName) {
   const number = Number(value);
+
   if (!Number.isFinite(number) || number <= 0) {
     const error = new Error(`${fieldName} 0'dan büyük bir sayı olmalıdır`);
     error.statusCode = 400;
@@ -27,13 +32,10 @@ function parsePositiveNumber(value, fieldName) {
 }
 
 async function findByIdOrThrow(id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    const error = new Error("Geçersiz takım kimliği");
-    error.statusCode = 400;
-    throw error;
-  }
+  const parsedId = parseUuid(id);
 
-  const tooling = await Tooling.findById(id);
+  const tooling = await getToolingByIdFromDb(parsedId);
+
   if (!tooling) {
     const error = new Error("Takım bulunamadı");
     error.statusCode = 404;
@@ -45,6 +47,7 @@ async function findByIdOrThrow(id) {
 
 function normalizeToolingPayload(payload) {
   const name = payload.name?.trim();
+
   if (!name) {
     const error = new Error("Ad zorunludur");
     error.statusCode = 400;
@@ -52,7 +55,7 @@ function normalizeToolingPayload(payload) {
   }
 
   return {
-    legacyNo: payload.legacyNo?.trim() || "",
+    legacyNo: payload.legacyNo?.toString().trim() || "",
     name,
     vDieMm: parsePositiveNumber(payload.vDieMm, "V-kalıp"),
     punchRadiusMm: parsePositiveNumber(payload.punchRadiusMm, "Punç yarıçapı"),
@@ -61,33 +64,31 @@ function normalizeToolingPayload(payload) {
 }
 
 export async function listToolings() {
-  const toolings = await Tooling.find().sort({ createdAt: 1 });
-  return toolings.map(toToolingDto);
+  return getAllToolings();
 }
 
 export async function getToolingById(id) {
-  const tooling = await findByIdOrThrow(id);
-  return toToolingDto(tooling);
+  return findByIdOrThrow(id);
 }
 
 export async function createTooling(payload) {
   const normalized = normalizeToolingPayload(payload);
-  const tooling = await Tooling.create(normalized);
-  return toToolingDto(tooling);
+  return createToolingInDb(normalized);
 }
 
 export async function updateTooling(id, payload) {
-  const tooling = await findByIdOrThrow(id);
+  const parsedId = parseUuid(id);
+  await findByIdOrThrow(parsedId);
+
   const normalized = normalizeToolingPayload(payload);
-
-  Object.assign(tooling, normalized);
-  await tooling.save();
-
-  return toToolingDto(tooling);
+  return updateToolingInDb(parsedId, normalized);
 }
 
 export async function deleteTooling(id) {
-  const tooling = await findByIdOrThrow(id);
-  await tooling.deleteOne();
+  const parsedId = parseUuid(id);
+  await findByIdOrThrow(parsedId);
+
+  await deleteToolingFromDb(parsedId);
+
   return { success: true };
 }

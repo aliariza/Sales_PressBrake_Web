@@ -1,28 +1,34 @@
 import bcrypt from "bcryptjs";
-import mongoose from "mongoose";
 
-import { User } from "../models/User.js";
+import {
+  countAdmins,
+  createUser as createUserInDb,
+  deleteUser as deleteUserFromDb,
+  getAllUsers,
+  getUserById as getUserByIdFromDb,
+  getUserByUsername,
+  toPublicUser,
+  updateUser as updateUserInDb
+} from "../repositories/userRepository.js";
 
-function toUserDto(user) {
-  return {
-    id: user._id.toString(),
-    legacyNo: user.legacyNo || "",
-    username: user.username,
-    role: user.role,
-    comments: user.comments || "",
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt
-  };
-}
+function parseUuid(id) {
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-async function findByIdOrThrow(id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
+  if (!uuidPattern.test(id)) {
     const error = new Error("Geçersiz kullanıcı kimliği");
     error.statusCode = 400;
     throw error;
   }
 
-  const user = await User.findById(id);
+  return id;
+}
+
+async function findByIdOrThrow(id) {
+  const parsedId = parseUuid(id);
+
+  const user = await getUserByIdFromDb(parsedId);
+
   if (!user) {
     const error = new Error("Kullanıcı bulunamadı");
     error.statusCode = 404;
@@ -33,8 +39,9 @@ async function findByIdOrThrow(id) {
 }
 
 async function ensureUsernameAvailable(username, excludedId = null) {
-  const existing = await User.findOne({ username });
-  if (existing && existing._id.toString() !== excludedId) {
+  const existing = await getUserByUsername(username);
+
+  if (existing && existing.id !== excludedId) {
     const error = new Error("Bu kullanıcı adı başka bir kullanıcı tarafından kullanılıyor");
     error.statusCode = 409;
     throw error;
@@ -48,7 +55,7 @@ async function ensureLastAdminNotRemoved(targetUserId, nextRole = null, deleting
     return targetUser;
   }
 
-  const adminCount = await User.countDocuments({ role: "admin" });
+  const adminCount = await countAdmins();
   const demoting = nextRole && nextRole !== "admin";
 
   if (adminCount === 1 && (deleting || demoting)) {
@@ -61,13 +68,13 @@ async function ensureLastAdminNotRemoved(targetUserId, nextRole = null, deleting
 }
 
 export async function listUsers() {
-  const users = await User.find().sort({ createdAt: 1 });
-  return users.map(toUserDto);
+  const users = await getAllUsers();
+  return users.map(toPublicUser);
 }
 
 export async function getUserById(id) {
   const user = await findByIdOrThrow(id);
-  return toUserDto(user);
+  return toPublicUser(user);
 }
 
 export async function createUser(payload) {
@@ -75,7 +82,7 @@ export async function createUser(payload) {
   const password = payload.password || "";
   const role = payload.role?.trim();
   const comments = payload.comments?.trim() || "";
-  const legacyNo = payload.legacyNo?.trim() || "";
+  const legacyNo = payload.legacyNo?.toString().trim() || "";
 
   if (!username) {
     const error = new Error("Kullanıcı adı zorunludur");
@@ -99,7 +106,7 @@ export async function createUser(payload) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const user = await User.create({
+  const user = await createUserInDb({
     legacyNo,
     username,
     passwordHash,
@@ -107,16 +114,18 @@ export async function createUser(payload) {
     comments
   });
 
-  return toUserDto(user);
+  return toPublicUser(user);
 }
 
 export async function updateUser(id, payload) {
-  const user = await findByIdOrThrow(id);
+  const parsedId = parseUuid(id);
+  const existingUser = await findByIdOrThrow(parsedId);
 
   const username = payload.username?.trim();
   const role = payload.role?.trim();
   const comments = payload.comments?.trim() || "";
   const password = payload.password || "";
+  const legacyNo = payload.legacyNo?.toString().trim() || existingUser.legacyNo || "";
 
   if (!username) {
     const error = new Error("Kullanıcı adı zorunludur");
@@ -130,24 +139,27 @@ export async function updateUser(id, payload) {
     throw error;
   }
 
-  await ensureUsernameAvailable(username, user._id.toString());
-  await ensureLastAdminNotRemoved(user._id.toString(), role, false);
+  await ensureUsernameAvailable(username, parsedId);
+  await ensureLastAdminNotRemoved(parsedId, role, false);
 
-  user.username = username;
-  user.role = role;
-  user.comments = comments;
+  const passwordHash = password ? await bcrypt.hash(password, 10) : null;
 
-  if (password) {
-    user.passwordHash = await bcrypt.hash(password, 10);
-  }
+  const updatedUser = await updateUserInDb(parsedId, {
+    legacyNo,
+    username,
+    passwordHash,
+    role,
+    comments
+  });
 
-  await user.save();
-
-  return toUserDto(user);
+  return toPublicUser(updatedUser);
 }
 
 export async function deleteUser(id) {
-  const user = await ensureLastAdminNotRemoved(id, null, true);
-  await user.deleteOne();
+  const parsedId = parseUuid(id);
+
+  await ensureLastAdminNotRemoved(parsedId, null, true);
+  await deleteUserFromDb(parsedId);
+
   return { success: true };
 }
