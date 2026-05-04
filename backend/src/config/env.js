@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const rawCorsOrigins = process.env.CORS_ORIGIN || "http://localhost:5173";
+const rawCorsOrigins = process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176";
 
 function requireEnv(name) {
   const value = process.env[name]?.trim();

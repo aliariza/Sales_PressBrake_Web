@@ -126,7 +126,7 @@ async function resolveMachine(machineId, machineModelSnapshot, machinePriceUsdRa
 
     if (machine) {
       return {
-        machineId: machine.id,
+        machineId: null,
         machineModelSnapshot: machine.model,
         machinePriceUsd: machine.basePriceUSD
       };
@@ -142,7 +142,7 @@ async function resolveMachine(machineId, machineModelSnapshot, machinePriceUsdRa
 
     if (machine) {
       return {
-        machineId: machine.id,
+        machineId: null,
         machineModelSnapshot: machine.model,
         machinePriceUsd: machine.basePriceUSD
       };
@@ -155,7 +155,6 @@ async function resolveMachine(machineId, machineModelSnapshot, machinePriceUsdRa
     machinePriceUsd: parseNonNegativeNumber(machinePriceUsdRaw, "Makine fiyatı")
   };
 }
-
 async function resolveTooling(toolingId, toolingNameSnapshot) {
   if (toolingId && isUuid(toolingId)) {
     const tooling = await getToolingByIdFromDb(toolingId);

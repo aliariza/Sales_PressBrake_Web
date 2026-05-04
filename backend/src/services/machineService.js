@@ -18,17 +18,16 @@ function parsePositiveNumber(value, fieldName) {
   return number;
 }
 
-function parseUuid(id) {
-  const uuidPattern =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function parseMachineId(id) {
+  const parsedId = Number(id);
 
-  if (!uuidPattern.test(id)) {
+  if (!Number.isInteger(parsedId) || parsedId <= 0) {
     const error = new Error("Geçersiz makine kimliği");
     error.statusCode = 400;
     throw error;
   }
 
-  return id;
+  return parsedId;
 }
 
 function normalizeMachinePayload(payload) {
@@ -51,7 +50,7 @@ function normalizeMachinePayload(payload) {
 }
 
 async function findByIdOrThrow(id) {
-  const parsedId = parseUuid(id);
+  const parsedId = parseMachineId(id);
 
   const machine = await getMachineByIdFromDb(parsedId);
 
@@ -78,7 +77,7 @@ export async function createMachine(payload) {
 }
 
 export async function updateMachine(id, payload) {
-  const parsedId = parseUuid(id);
+  const parsedId = parseMachineId(id);
   await findByIdOrThrow(parsedId);
 
   const normalized = normalizeMachinePayload(payload);
@@ -86,7 +85,7 @@ export async function updateMachine(id, payload) {
 }
 
 export async function deleteMachine(id) {
-  const parsedId = parseUuid(id);
+  const parsedId = parseMachineId(id);
   await findByIdOrThrow(parsedId);
 
   await deleteMachineFromDb(parsedId);
