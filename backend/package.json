@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
+    "patch:quotes": "node src/db/patchQuotesTable.js",
     "migrate:csv": "node scripts/migrate-csv-to-mongo.js"
   },
   "dependencies": {
