@@ -1,9 +1,10 @@
 import { buildRecommendations } from "../services/recommendationService.js";
 
 export async function recommendController(req, res) {
-  const { materialName, thicknessMm, bendLengthMm } = req.body;
+  const { materialId, materialName, thicknessMm, bendLengthMm } = req.body;
 
   const result = await buildRecommendations({
+    materialId,
     materialName,
     thicknessMm: Number(thicknessMm),
     bendLengthMm: Number(bendLengthMm)

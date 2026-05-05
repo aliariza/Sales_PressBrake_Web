@@ -3,7 +3,9 @@ import {
   createQuote as createQuoteInDb,
   deleteQuote as deleteQuoteFromDb,
   getAllQuotes,
-  getQuoteById as getQuoteByIdFromDb
+  getQuoteById as getQuoteByIdFromDb,
+  getQuotesByOwnerUserId,
+  hasQuoteCode
 } from "../repositories/quoteRepository.js";
 
 import {
@@ -81,13 +83,38 @@ async function findByIdOrThrow(id) {
   return quote;
 }
 
+function assertCanAccessQuote(quote, user) {
+  if (user?.role === "admin") {
+    return quote;
+  }
+
+  if (!user?.sub || quote.ownerUserId !== user.sub) {
+    const error = new Error("Bu teklife erişim izniniz yok");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return quote;
+}
+
 async function generateQuoteCode() {
   const datePart = new Date().toISOString().slice(0, 10).replaceAll("-", "");
   const prefix = `Q-${datePart}-`;
+  let nextSequence = (await countQuotesByCodePrefix(prefix)) + 1;
 
-  const todayQuotesCount = await countQuotesByCodePrefix(prefix);
+  while (true) {
+    const candidate = `${prefix}${nextSequence}`;
 
-  return `${prefix}${todayQuotesCount + 1}`;
+    if (!(await hasQuoteCode(candidate))) {
+      return candidate;
+    }
+
+    nextSequence += 1;
+  }
+}
+
+function isUniqueViolation(error) {
+  return error?.code === "23505";
 }
 
 async function resolveMaterial(materialId, materialNameSnapshot) {
@@ -126,7 +153,7 @@ async function resolveMachine(machineId, machineModelSnapshot, machinePriceUsdRa
 
     if (machine) {
       return {
-        machineId: null,
+        machineId: machine.id,
         machineModelSnapshot: machine.model,
         machinePriceUsd: machine.basePriceUSD
       };
@@ -142,7 +169,7 @@ async function resolveMachine(machineId, machineModelSnapshot, machinePriceUsdRa
 
     if (machine) {
       return {
-        machineId: null,
+        machineId: machine.id,
         machineModelSnapshot: machine.model,
         machinePriceUsd: machine.basePriceUSD
       };
@@ -251,15 +278,32 @@ function normalizeCustomer(customer) {
   };
 }
 
-export async function listQuotes() {
-  return getAllQuotes();
+export async function listQuotes(user) {
+  if (user?.role === "admin") {
+    return getAllQuotes();
+  }
+
+  if (!user?.sub) {
+    const error = new Error("Kullanıcı bilgisi bulunamadı");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  return getQuotesByOwnerUserId(user.sub);
 }
 
-export async function getQuoteById(id) {
-  return findByIdOrThrow(id);
+export async function getQuoteById(id, user) {
+  const quote = await findByIdOrThrow(id);
+  return assertCanAccessQuote(quote, user);
 }
 
-export async function createQuote(payload) {
+export async function createQuote(payload, user) {
+  if (!user?.sub || !user?.username) {
+    const error = new Error("Kullanıcı bilgisi bulunamadı");
+    error.statusCode = 401;
+    throw error;
+  }
+
   const customer = normalizeCustomer(payload.customer);
 
   const thicknessMm = parsePositiveNumber(payload.thicknessMm, "Kalınlık");
@@ -289,11 +333,13 @@ export async function createQuote(payload) {
   );
 
   const grandTotalUsd = machinePriceUsd + options.optionsTotalUsd;
+  const manualQuoteCode = payload.quoteCode?.trim() || "";
 
-  return createQuoteInDb({
+  const baseQuote = {
     legacyNo: payload.legacyNo?.toString().trim() || "",
-    quoteCode: payload.quoteCode?.trim() || (await generateQuoteCode()),
     customer,
+    ownerUserId: user.sub,
+    ownerUsername: user.username,
     materialId: material.materialId,
     materialNameSnapshot: material.materialNameSnapshot,
     thicknessMm,
@@ -308,7 +354,27 @@ export async function createQuote(payload) {
     grandTotalUsd,
     notes: payload.notes?.trim() || "",
     createdAtLegacy: payload.createdAtLegacy?.trim() || new Date().toISOString()
-  });
+  };
+
+  if (manualQuoteCode) {
+    return createQuoteInDb({
+      ...baseQuote,
+      quoteCode: manualQuoteCode
+    });
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      return await createQuoteInDb({
+        ...baseQuote,
+        quoteCode: await generateQuoteCode()
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error) || attempt === 4) {
+        throw error;
+      }
+    }
+  }
 }
 
 export async function deleteQuote(id) {

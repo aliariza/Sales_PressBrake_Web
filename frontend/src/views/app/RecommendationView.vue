@@ -12,7 +12,11 @@
         <form class="resource-form" @submit.prevent="runRecommendation">
           <label>
             Malzeme
-            <select v-model="form.materialNameSnapshot" :disabled="fetchingMaterials || loading">
+            <select
+              v-model="form.materialNameSnapshot"
+              :disabled="fetchingMaterials || loading"
+              @change="syncSelectedMaterial"
+            >
               <option value="">Malzeme seçin</option>
               <option v-for="material in materials" :key="material.id" :value="material.name">
                 {{ material.name }}
@@ -246,6 +250,7 @@ const error = ref("");
 const success = ref("");
 
 const form = reactive({
+  materialId: "",
   materialNameSnapshot: "",
   thicknessMm: "",
   bendLengthMm: "",
@@ -310,12 +315,21 @@ function toggleOption(option) {
   selectedOptions.value = [...selectedOptions.value, option];
 }
 
+function syncSelectedMaterial() {
+  const material = materials.value.find(
+    (entry) => entry.name === form.materialNameSnapshot
+  );
+
+  form.materialId = material?.id || "";
+}
+
 async function loadMaterials() {
   fetchingMaterials.value = true;
   error.value = "";
 
   try {
     materials.value = await listResource("materials");
+    syncSelectedMaterial();
   } catch (err) {
     error.value = getErrorMessage(err, "Malzemeler yüklenemedi");
   } finally {
@@ -330,6 +344,7 @@ async function runRecommendation() {
 
   try {
     const { data } = await http.post("/recommendations", {
+      materialId: form.materialId || null,
       materialName: form.materialNameSnapshot,
       thicknessMm: form.thicknessMm,
       bendLengthMm: form.bendLengthMm
@@ -358,6 +373,7 @@ async function saveQuote() {
   try {
     const payload = {
       customer: { ...customer },
+      materialId: form.materialId || null,
       materialNameSnapshot: form.materialNameSnapshot,
       thicknessMm: form.thicknessMm,
       bendLengthMm: form.bendLengthMm,

@@ -12,8 +12,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
-router.get("/", requireAuth, asyncHandler(listUsersController));
-router.get("/:id", requireAuth, asyncHandler(getUserByIdController));
+router.get("/", requireAuth, requireAdmin, asyncHandler(listUsersController));
+router.get("/:id", requireAuth, requireAdmin, asyncHandler(getUserByIdController));
 router.post("/", requireAuth, requireAdmin, asyncHandler(createUserController));
 router.patch("/:id", requireAuth, requireAdmin, asyncHandler(updateUserController));
 router.delete("/:id", requireAuth, requireAdmin, asyncHandler(deleteUserController));

@@ -16,6 +16,8 @@ async function patchQuotesTable() {
       ADD COLUMN IF NOT EXISTS legacy_no TEXT,
       ADD COLUMN IF NOT EXISTS quote_code TEXT,
       ADD COLUMN IF NOT EXISTS customer JSONB,
+      ADD COLUMN IF NOT EXISTS owner_user_id UUID,
+      ADD COLUMN IF NOT EXISTS owner_username TEXT,
       ADD COLUMN IF NOT EXISTS material_id UUID,
       ADD COLUMN IF NOT EXISTS material_name_snapshot TEXT,
       ADD COLUMN IF NOT EXISTS thickness_mm NUMERIC,
@@ -44,6 +46,17 @@ async function patchQuotesTable() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_quotes_created_at
     ON quotes (created_at);
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_quotes_owner_user_id
+    ON quotes (owner_user_id);
+  `);
+
+  await pool.query(`
+    UPDATE quotes
+    SET owner_username = COALESCE(NULLIF(owner_username, ''), 'legacy-import')
+    WHERE owner_username IS NULL OR owner_username = '';
   `);
 
   console.log("quotes table patched successfully");

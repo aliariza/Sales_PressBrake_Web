@@ -364,8 +364,8 @@ function buildPdfBuffer(content) {
   return Buffer.from(pdf, "utf8");
 }
 
-export async function generateQuotePdf(id) {
-  const quote = await getQuoteById(id);
+export async function generateQuotePdf(id, user) {
+  const quote = await getQuoteById(id, user);
   const content = buildPdfContent(quote);
 
   return {

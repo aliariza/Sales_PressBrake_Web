@@ -16,5 +16,5 @@ router.get("/", requireAuth, asyncHandler(listQuotesController));
 router.get("/:id", requireAuth, asyncHandler(getQuoteByIdController));
 router.get("/:id/pdf", requireAuth, asyncHandler(downloadQuotePdfController));
 router.post("/", requireAuth, asyncHandler(createQuoteController));
-router.delete("/:id", requireAuth, asyncHandler(deleteQuoteController));
+router.delete("/:id", requireAuth, requireAdmin, asyncHandler(deleteQuoteController));
 export default router;

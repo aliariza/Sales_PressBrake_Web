@@ -106,6 +106,8 @@ async function createTables() {
       quote_code TEXT NOT NULL UNIQUE,
 
       customer JSONB NOT NULL,
+      owner_user_id UUID NOT NULL,
+      owner_username TEXT NOT NULL,
 
       material_id UUID,
       material_name_snapshot TEXT NOT NULL,
@@ -143,6 +145,11 @@ async function createTables() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_quotes_created_at
     ON quotes (created_at);
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_quotes_owner_user_id
+    ON quotes (owner_user_id);
   `);
 
     await pool.query(`

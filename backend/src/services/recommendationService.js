@@ -1,4 +1,8 @@
 import { getAllMachines } from "../repositories/machineRepository.js";
+import {
+  getAllMaterials,
+  getMaterialById
+} from "../repositories/materialRepository.js";
 import { getAllOptions } from "../repositories/optionRepository.js";
 import { getAllToolings } from "../repositories/toolingRepository.js";
 
@@ -14,9 +18,63 @@ function parsePositiveNumber(value, fieldName) {
   return number;
 }
 
-export async function buildRecommendations({ thicknessMm, bendLengthMm }) {
+function isUuid(id) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    id
+  );
+}
+
+async function resolveMaterial(materialId, materialName) {
+  if (materialId && isUuid(materialId)) {
+    const material = await getMaterialById(materialId);
+
+    if (material) {
+      return material;
+    }
+  }
+
+  const normalizedName = materialName?.trim().toLowerCase();
+
+  if (!normalizedName) {
+    const error = new Error("Malzeme seçimi zorunludur");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const materials = await getAllMaterials();
+  const material = materials.find(
+    (entry) => entry.name.toLowerCase() === normalizedName
+  );
+
+  if (!material) {
+    const error = new Error("Seçilen malzeme bulunamadı");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return material;
+}
+
+export async function buildRecommendations({
+  materialId,
+  materialName,
+  thicknessMm,
+  bendLengthMm
+}) {
   const parsedThicknessMm = parsePositiveNumber(thicknessMm, "Kalınlık");
   const parsedBendLengthMm = parsePositiveNumber(bendLengthMm, "Bükme boyu");
+  const material = await resolveMaterial(materialId, materialName);
+
+  if (
+    parsedThicknessMm < material.minThicknessMm ||
+    parsedThicknessMm > material.maxThicknessMm
+  ) {
+    const error = new Error(
+      `${material.name} için kalınlık ${material.minThicknessMm} mm ile ${material.maxThicknessMm} mm arasında olmalıdır`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
 
   const allMachines = await getAllMachines();
 
@@ -35,7 +93,7 @@ export async function buildRecommendations({ thicknessMm, bendLengthMm }) {
       );
     });
 
-  const targetVdie = parsedThicknessMm * 8;
+  const targetVdie = parsedThicknessMm * material.recommendedVdieFactor;
 
   const toolingCandidates = await getAllToolings();
 
@@ -52,11 +110,12 @@ export async function buildRecommendations({ thicknessMm, bendLengthMm }) {
   const options = await getAllOptions();
 
   return {
+    material,
     machines: machines.map((machine) => ({
       machine,
       reason:
-        `Suitable because max thickness (${machine.maxThicknessMm} mm) ` +
-        `and working length (${machine.workingLengthMm} mm) meet the requirement.`
+        `${material.name} icin uygun; maksimum kalinlik (${machine.maxThicknessMm} mm) ` +
+        `ve calisma boyu (${machine.workingLengthMm} mm) gereksinimi karsiliyor.`
     })),
     toolings,
     options
