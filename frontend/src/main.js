@@ -15,6 +15,6 @@ app.use(pinia)
 app.use(router)
 
 const themeStore = useThemeStore()
-themeStore.applyTheme()
+themeStore.startSystemSync()
 
 app.mount('#app')

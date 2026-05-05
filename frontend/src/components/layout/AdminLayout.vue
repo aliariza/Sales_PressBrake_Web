@@ -9,8 +9,6 @@
           </div>
 
           <div class="toolbar-actions">
-            <ThemeToggle />
-
             <button class="button-secondary icon-only-button" @click="logout" aria-label="Çıkış" title="Çıkış">
               <IconGlyph name="logout" />
             </button>
@@ -38,7 +36,6 @@
 import { useRouter } from "vue-router";
 
 import IconGlyph from "../shared/IconGlyph.vue";
-import ThemeToggle from "../shared/ThemeToggle.vue";
 import { useAuthStore } from "../../stores/auth";
 
 const auth = useAuthStore();

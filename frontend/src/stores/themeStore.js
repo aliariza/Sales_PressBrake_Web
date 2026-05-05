@@ -1,28 +1,39 @@
-import { defineStore } from 'pinia'
+import { defineStore } from "pinia";
 
-export const useThemeStore = defineStore('theme', {
+function getSystemMode() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+export const useThemeStore = defineStore("theme", {
   state: () => ({
-    mode: localStorage.getItem('theme-mode') || 'light'
+    mode: "system",
+    resolvedMode: "light",
+    mediaQueryList: null,
+    mediaQueryHandler: null
   }),
 
   getters: {
-    isDark: (state) => state.mode === 'dark'
+    isDark: (state) => state.resolvedMode === "dark"
   },
 
   actions: {
     applyTheme() {
-      document.documentElement.setAttribute('data-theme', this.mode)
-      localStorage.setItem('theme-mode', this.mode)
+      this.resolvedMode = getSystemMode();
+      document.documentElement.setAttribute("data-theme", this.resolvedMode);
     },
 
-    toggleTheme() {
-      this.mode = this.mode === 'dark' ? 'light' : 'dark'
-      this.applyTheme()
-    },
+    startSystemSync() {
+      this.applyTheme();
 
-    setTheme(mode) {
-      this.mode = mode
-      this.applyTheme()
+      if (this.mediaQueryList && this.mediaQueryHandler) {
+        this.mediaQueryList.removeEventListener("change", this.mediaQueryHandler);
+      }
+
+      this.mediaQueryList = window.matchMedia("(prefers-color-scheme: dark)");
+      this.mediaQueryHandler = () => this.applyTheme();
+      this.mediaQueryList.addEventListener("change", this.mediaQueryHandler);
     }
   }
-})
+});
