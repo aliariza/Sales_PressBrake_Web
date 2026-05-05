@@ -20,6 +20,7 @@
         <p v-if="auth.user" class="shell-subtitle">{{ auth.user.username }} olarak giriş yapıldı</p>
         <router-link class="nav-link" to="/app/recommendation">Öneri</router-link>
         <router-link class="nav-link" to="/app/quotes">Teklifler</router-link>
+        <router-link v-if="auth.user?.role === 'admin'" class="nav-link" to="/admin/users">Yönetim</router-link>
       </aside>
 
       <main class="card content">

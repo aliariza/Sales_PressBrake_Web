@@ -18,6 +18,8 @@
         </div>
 
         <p v-if="auth.user" class="shell-subtitle">{{ auth.user.username }} olarak giriş yapıldı</p>
+        <router-link class="nav-link" to="/app/recommendation">Öneri</router-link>
+        <router-link class="nav-link" to="/app/quotes">Teklifler</router-link>
         <router-link class="nav-link" to="/admin/users">Kullanıcılar</router-link>
         <router-link class="nav-link" to="/admin/materials">Malzemeler</router-link>
         <router-link class="nav-link" to="/admin/machines">Makineler</router-link>

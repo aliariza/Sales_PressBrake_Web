@@ -61,6 +61,7 @@
                   <IconGlyph name="pdf" />
                 </button>
                 <button
+                  v-if="canDeleteQuotes"
                   class="button-danger icon-only-button"
                   :disabled="deletingId === quote.id"
                   @click="removeQuote(quote)"
@@ -174,9 +175,11 @@ import { http } from "../../api/http";
 import { listResource } from "../../api/resources";
 import IconGlyph from "../../components/shared/IconGlyph.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
+import { useAuthStore } from "../../stores/auth";
 import { getErrorMessage } from "../../utils/errors";
 import { formatCurrency, formatNumber } from "../../utils/formatters";
 
+const auth = useAuthStore();
 const quotes = ref([]);
 const selectedQuote = ref(null);
 const loadingList = ref(false);
@@ -186,6 +189,7 @@ const deletingId = ref("");
 const downloadingId = ref("");
 const error = ref("");
 const success = ref("");
+const canDeleteQuotes = computed(() => auth.user?.role === "admin");
 
 function formatDate(value) {
   if (!value) {
