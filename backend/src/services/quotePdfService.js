@@ -103,7 +103,7 @@ function makeFilledRect(x, y, width, height, fillRgb = [0.95, 0.97, 1], strokeRg
 function buildItems(quote) {
   const items = [
     {
-      code: "MAKINE",
+      code: "MAKİNE",
       name: quote.machineModelSnapshot,
       quantity: "1",
       unitPrice: formatCurrency(quote.machinePriceUsd),
@@ -136,28 +136,28 @@ function buildItems(quote) {
 
 function integerToWords(number) {
   const ones = [
-    "sifir",
+    "sıfır",
     "bir",
     "iki",
-    "uc",
-    "dort",
-    "bes",
-    "alti",
+    "üç",
+    "dört",
+    "beş",
+    "altı",
     "yedi",
     "sekiz",
     "dokuz",
     "on",
     "on bir",
     "on iki",
-    "on uc",
-    "on dort",
-    "on bes",
-    "on alti",
+    "on üç",
+    "on dört",
+    "on beş",
+    "on altı",
     "on yedi",
     "on sekiz",
     "on dokuz"
   ];
-  const tens = ["", "", "yirmi", "otuz", "kirk", "elli", "altmis", "yetmis", "seksen", "doksan"];
+  const tens = ["", "", "yirmi", "otuz", "kırk", "elli", "altmış", "yetmiş", "seksen", "doksan"];
 
   if (number < 20) {
     return ones[number];
@@ -171,8 +171,8 @@ function integerToWords(number) {
   if (number < 1000) {
     const remainder = number % 100;
     return remainder
-      ? `${ones[Math.floor(number / 100)]} yuz ${integerToWords(remainder)}`
-      : `${ones[Math.floor(number / 100)]} yuz`;
+      ? `${ones[Math.floor(number / 100)]} yüz ${integerToWords(remainder)}`
+      : `${ones[Math.floor(number / 100)]} yüz`;
   }
 
   if (number < 1000000) {
