@@ -86,94 +86,40 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
-
-import { createResource, deleteResource, listResource, updateResource } from "../../api/resources";
 import IconGlyph from "../../components/shared/IconGlyph.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
-import { getErrorMessage } from "../../utils/errors";
+import { useAdminResource } from "../../composables/useAdminResource";
 import { formatCurrency } from "../../utils/formatters";
 
-const options = ref([]);
-const loading = ref(false);
-const fetching = ref(false);
-const error = ref("");
-const success = ref("");
-const form = reactive({
-  id: "",
-  code: "",
-  name: "",
-  priceUsd: ""
+const {
+  items: options,
+  form,
+  loading,
+  fetching,
+  error,
+  success,
+  resetForm,
+  startEdit,
+  loadItems: loadOptions,
+  saveItem: saveOption,
+  removeItem: removeOption
+} = useAdminResource({
+  resourceName: "options",
+  createInitialForm: () => ({
+    id: "",
+    code: "",
+    name: "",
+    priceUsd: ""
+  }),
+  messages: {
+    loadError: "Opsiyonlar yüklenemedi",
+    saveError: "Opsiyon kaydedilemedi",
+    deleteError: "Opsiyon silinemedi",
+    createSuccess: "Opsiyon oluşturuldu.",
+    updateSuccess: "Opsiyon güncellendi.",
+    deleteSuccess: "Opsiyon silindi."
+  },
+  mapToPayload: ({ id, ...payload }) => payload,
+  getDeleteLabel: (option) => option.code
 });
-
-function resetForm() {
-  form.id = "";
-  form.code = "";
-  form.name = "";
-  form.priceUsd = "";
-}
-
-function startEdit(option) {
-  Object.assign(form, option);
-  error.value = "";
-  success.value = "";
-}
-
-async function loadOptions() {
-  fetching.value = true;
-
-  try {
-    options.value = await listResource("options");
-  } catch (err) {
-    error.value = getErrorMessage(err, "Opsiyonlar yüklenemedi");
-  } finally {
-    fetching.value = false;
-  }
-}
-
-async function saveOption() {
-  loading.value = true;
-  error.value = "";
-  success.value = "";
-
-  try {
-    const payload = { ...form };
-    delete payload.id;
-
-    if (form.id) {
-      await updateResource("options", form.id, payload);
-      success.value = "Opsiyon güncellendi.";
-    } else {
-      await createResource("options", payload);
-      success.value = "Opsiyon oluşturuldu.";
-    }
-
-    resetForm();
-    await loadOptions();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Opsiyon kaydedilemedi");
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function removeOption(option) {
-  if (!window.confirm(`${option.code} silinsin mi?`)) {
-    return;
-  }
-
-  try {
-    await deleteResource("options", option.id);
-    if (form.id === option.id) {
-      resetForm();
-    }
-    success.value = "Opsiyon silindi.";
-    error.value = "";
-    await loadOptions();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Opsiyon silinemedi");
-  }
-}
-
-onMounted(loadOptions);
 </script>

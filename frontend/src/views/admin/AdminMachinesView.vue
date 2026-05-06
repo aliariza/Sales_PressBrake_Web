@@ -92,98 +92,42 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
-
-import { createResource, deleteResource, listResource, updateResource } from "../../api/resources";
 import IconGlyph from "../../components/shared/IconGlyph.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
-import { getErrorMessage } from "../../utils/errors";
+import { useAdminResource } from "../../composables/useAdminResource";
 import { formatCurrency, formatNumber } from "../../utils/formatters";
 
-const machines = ref([]);
-const loading = ref(false);
-const fetching = ref(false);
-const error = ref("");
-const success = ref("");
-const form = reactive({
-  id: "",
-  model: "",
-  maxTonnageTonf: "",
-  workingLengthMm: "",
-  maxThicknessMm: "",
-  basePriceUSD: ""
+const {
+  items: machines,
+  form,
+  loading,
+  fetching,
+  error,
+  success,
+  resetForm,
+  startEdit,
+  loadItems: loadMachines,
+  saveItem: saveMachine,
+  removeItem: removeMachine
+} = useAdminResource({
+  resourceName: "machines",
+  createInitialForm: () => ({
+    id: "",
+    model: "",
+    maxTonnageTonf: "",
+    workingLengthMm: "",
+    maxThicknessMm: "",
+    basePriceUSD: ""
+  }),
+  messages: {
+    loadError: "Makineler yüklenemedi",
+    saveError: "Makine kaydedilemedi",
+    deleteError: "Makine silinemedi",
+    createSuccess: "Makine oluşturuldu.",
+    updateSuccess: "Makine güncellendi.",
+    deleteSuccess: "Makine silindi."
+  },
+  mapToPayload: ({ id, ...payload }) => payload,
+  getDeleteLabel: (machine) => machine.model
 });
-
-function resetForm() {
-  form.id = "";
-  form.model = "";
-  form.maxTonnageTonf = "";
-  form.workingLengthMm = "";
-  form.maxThicknessMm = "";
-  form.basePriceUSD = "";
-}
-
-function startEdit(machine) {
-  Object.assign(form, machine);
-  error.value = "";
-  success.value = "";
-}
-
-async function loadMachines() {
-  fetching.value = true;
-
-  try {
-    machines.value = await listResource("machines");
-  } catch (err) {
-    error.value = getErrorMessage(err, "Makineler yüklenemedi");
-  } finally {
-    fetching.value = false;
-  }
-}
-
-async function saveMachine() {
-  loading.value = true;
-  error.value = "";
-  success.value = "";
-
-  try {
-    const payload = { ...form };
-    delete payload.id;
-
-    if (form.id) {
-      await updateResource("machines", form.id, payload);
-      success.value = "Makine güncellendi.";
-    } else {
-      await createResource("machines", payload);
-      success.value = "Makine oluşturuldu.";
-    }
-
-    resetForm();
-    await loadMachines();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Makine kaydedilemedi");
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function removeMachine(machine) {
-  if (!window.confirm(`${machine.model} silinsin mi?`)) {
-    return;
-  }
-
-  try {
-    await deleteResource("machines", machine.id);
-    if (form.id === machine.id) {
-      resetForm();
-    }
-    success.value = "Makine silindi.";
-    error.value = "";
-    await loadMachines();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Makine silinemedi");
-  }
-}
-
-onMounted(loadMachines);
 </script>

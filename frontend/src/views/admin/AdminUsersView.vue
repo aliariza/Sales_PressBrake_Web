@@ -105,105 +105,56 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
 import { computed } from "vue";
 
-import { createResource, deleteResource, listResource, updateResource } from "../../api/resources";
 import IconGlyph from "../../components/shared/IconGlyph.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
-import { getErrorMessage } from "../../utils/errors";
+import { useAdminResource } from "../../composables/useAdminResource";
 
-const users = ref([]);
-const adminCount = computed(() => users.value.filter((user) => user.role === "admin").length);
-const loading = ref(false);
-const fetching = ref(false);
-const error = ref("");
-const success = ref("");
-const form = reactive({
-  id: "",
-  username: "",
-  password: "",
-  role: "user",
-  comments: ""
+const {
+  items: users,
+  form,
+  loading,
+  fetching,
+  error,
+  success,
+  resetForm,
+  startEdit,
+  loadItems: loadUsers,
+  saveItem: saveUser,
+  removeItem: removeUser
+} = useAdminResource({
+  resourceName: "users",
+  createInitialForm: () => ({
+    id: "",
+    username: "",
+    password: "",
+    role: "user",
+    comments: ""
+  }),
+  messages: {
+    loadError: "Kullanıcılar yüklenemedi",
+    saveError: "Kullanıcı kaydedilemedi",
+    deleteError: "Kullanıcı silinemedi",
+    createSuccess: "Kullanıcı oluşturuldu.",
+    updateSuccess: "Kullanıcı güncellendi.",
+    deleteSuccess: "Kullanıcı silindi."
+  },
+  mapToForm: (user) => ({
+    id: user.id,
+    username: user.username,
+    password: "",
+    role: user.role,
+    comments: user.comments || ""
+  }),
+  mapToPayload: ({ username, password, role, comments }) => ({
+    username,
+    password,
+    role,
+    comments
+  }),
+  getDeleteLabel: (user) => user.username
 });
 
-function resetForm() {
-  form.id = "";
-  form.username = "";
-  form.password = "";
-  form.role = "user";
-  form.comments = "";
-}
-
-function startEdit(user) {
-  form.id = user.id;
-  form.username = user.username;
-  form.password = "";
-  form.role = user.role;
-  form.comments = user.comments || "";
-  error.value = "";
-  success.value = "";
-}
-
-async function loadUsers() {
-  fetching.value = true;
-
-  try {
-    users.value = await listResource("users");
-  } catch (err) {
-    error.value = getErrorMessage(err, "Kullanıcılar yüklenemedi");
-  } finally {
-    fetching.value = false;
-  }
-}
-
-async function saveUser() {
-  loading.value = true;
-  error.value = "";
-  success.value = "";
-
-  try {
-    const payload = {
-      username: form.username,
-      password: form.password,
-      role: form.role,
-      comments: form.comments
-    };
-
-    if (form.id) {
-      await updateResource("users", form.id, payload);
-      success.value = "Kullanıcı güncellendi.";
-    } else {
-      await createResource("users", payload);
-      success.value = "Kullanıcı oluşturuldu.";
-    }
-
-    resetForm();
-    await loadUsers();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Kullanıcı kaydedilemedi");
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function removeUser(user) {
-  if (!window.confirm(`${user.username} silinsin mi?`)) {
-    return;
-  }
-
-  try {
-    await deleteResource("users", user.id);
-    if (form.id === user.id) {
-      resetForm();
-    }
-    success.value = "Kullanıcı silindi.";
-    error.value = "";
-    await loadUsers();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Kullanıcı silinemedi");
-  }
-}
-
-onMounted(loadUsers);
+const adminCount = computed(() => users.value.filter((user) => user.role === "admin").length);
 </script>

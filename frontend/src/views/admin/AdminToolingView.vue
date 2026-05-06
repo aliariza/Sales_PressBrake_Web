@@ -89,96 +89,41 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
-
-import { createResource, deleteResource, listResource, updateResource } from "../../api/resources";
 import IconGlyph from "../../components/shared/IconGlyph.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
-import { getErrorMessage } from "../../utils/errors";
+import { useAdminResource } from "../../composables/useAdminResource";
 import { formatNumber } from "../../utils/formatters";
 
-const toolings = ref([]);
-const loading = ref(false);
-const fetching = ref(false);
-const error = ref("");
-const success = ref("");
-const form = reactive({
-  id: "",
-  name: "",
-  vDieMm: "",
-  punchRadiusMm: "",
-  dieRadiusMm: ""
+const {
+  items: toolings,
+  form,
+  loading,
+  fetching,
+  error,
+  success,
+  resetForm,
+  startEdit,
+  loadItems: loadToolings,
+  saveItem: saveTooling,
+  removeItem: removeTooling
+} = useAdminResource({
+  resourceName: "toolings",
+  createInitialForm: () => ({
+    id: "",
+    name: "",
+    vDieMm: "",
+    punchRadiusMm: "",
+    dieRadiusMm: ""
+  }),
+  messages: {
+    loadError: "Takımlar yüklenemedi",
+    saveError: "Takım kaydedilemedi",
+    deleteError: "Takım silinemedi",
+    createSuccess: "Takım oluşturuldu.",
+    updateSuccess: "Takım güncellendi.",
+    deleteSuccess: "Takım silindi."
+  },
+  mapToPayload: ({ id, ...payload }) => payload,
+  getDeleteLabel: (tooling) => tooling.name
 });
-
-function resetForm() {
-  form.id = "";
-  form.name = "";
-  form.vDieMm = "";
-  form.punchRadiusMm = "";
-  form.dieRadiusMm = "";
-}
-
-function startEdit(tooling) {
-  Object.assign(form, tooling);
-  error.value = "";
-  success.value = "";
-}
-
-async function loadToolings() {
-  fetching.value = true;
-
-  try {
-    toolings.value = await listResource("toolings");
-  } catch (err) {
-    error.value = getErrorMessage(err, "Takımlar yüklenemedi");
-  } finally {
-    fetching.value = false;
-  }
-}
-
-async function saveTooling() {
-  loading.value = true;
-  error.value = "";
-  success.value = "";
-
-  try {
-    const payload = { ...form };
-    delete payload.id;
-
-    if (form.id) {
-      await updateResource("toolings", form.id, payload);
-      success.value = "Takım güncellendi.";
-    } else {
-      await createResource("toolings", payload);
-      success.value = "Takım oluşturuldu.";
-    }
-
-    resetForm();
-    await loadToolings();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Takım kaydedilemedi");
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function removeTooling(tooling) {
-  if (!window.confirm(`${tooling.name} silinsin mi?`)) {
-    return;
-  }
-
-  try {
-    await deleteResource("toolings", tooling.id);
-    if (form.id === tooling.id) {
-      resetForm();
-    }
-    success.value = "Takım silindi.";
-    error.value = "";
-    await loadToolings();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Takım silinemedi");
-  }
-}
-
-onMounted(loadToolings);
 </script>

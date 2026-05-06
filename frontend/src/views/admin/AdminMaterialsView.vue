@@ -95,104 +95,45 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
-
-import { createResource, deleteResource, listResource, updateResource } from "../../api/resources";
 import IconGlyph from "../../components/shared/IconGlyph.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
-import { getErrorMessage } from "../../utils/errors";
+import { useAdminResource } from "../../composables/useAdminResource";
 import { formatNumber } from "../../utils/formatters";
 
-const materials = ref([]);
-const loading = ref(false);
-const fetching = ref(false);
-const error = ref("");
-const success = ref("");
-const form = reactive({
-  id: "",
-  name: "",
-  tensileStrengthMPa: "",
-  yieldStrengthMPa: "",
-  kFactorDefault: 0.42,
-  youngsModulusMPa: "",
-  recommendedVdieFactor: "",
-  minThicknessMm: "",
-  maxThicknessMm: ""
+const {
+  items: materials,
+  form,
+  loading,
+  fetching,
+  error,
+  success,
+  resetForm,
+  startEdit,
+  loadItems: loadMaterials,
+  saveItem: saveMaterial,
+  removeItem: removeMaterial
+} = useAdminResource({
+  resourceName: "materials",
+  createInitialForm: () => ({
+    id: "",
+    name: "",
+    tensileStrengthMPa: "",
+    yieldStrengthMPa: "",
+    kFactorDefault: 0.42,
+    youngsModulusMPa: "",
+    recommendedVdieFactor: "",
+    minThicknessMm: "",
+    maxThicknessMm: ""
+  }),
+  messages: {
+    loadError: "Malzemeler yüklenemedi",
+    saveError: "Malzeme kaydedilemedi",
+    deleteError: "Malzeme silinemedi",
+    createSuccess: "Malzeme oluşturuldu.",
+    updateSuccess: "Malzeme güncellendi.",
+    deleteSuccess: "Malzeme silindi."
+  },
+  mapToPayload: ({ id, ...payload }) => payload,
+  getDeleteLabel: (material) => material.name
 });
-
-function resetForm() {
-  form.id = "";
-  form.name = "";
-  form.tensileStrengthMPa = "";
-  form.yieldStrengthMPa = "";
-  form.kFactorDefault = 0.42;
-  form.youngsModulusMPa = "";
-  form.recommendedVdieFactor = "";
-  form.minThicknessMm = "";
-  form.maxThicknessMm = "";
-}
-
-function startEdit(material) {
-  Object.assign(form, material);
-  error.value = "";
-  success.value = "";
-}
-
-async function loadMaterials() {
-  fetching.value = true;
-
-  try {
-    materials.value = await listResource("materials");
-  } catch (err) {
-    error.value = getErrorMessage(err, "Malzemeler yüklenemedi");
-  } finally {
-    fetching.value = false;
-  }
-}
-
-async function saveMaterial() {
-  loading.value = true;
-  error.value = "";
-  success.value = "";
-
-  try {
-    const payload = { ...form };
-    delete payload.id;
-
-    if (form.id) {
-      await updateResource("materials", form.id, payload);
-      success.value = "Malzeme güncellendi.";
-    } else {
-      await createResource("materials", payload);
-      success.value = "Malzeme oluşturuldu.";
-    }
-
-    resetForm();
-    await loadMaterials();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Malzeme kaydedilemedi");
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function removeMaterial(material) {
-  if (!window.confirm(`${material.name} silinsin mi?`)) {
-    return;
-  }
-
-  try {
-    await deleteResource("materials", material.id);
-    if (form.id === material.id) {
-      resetForm();
-    }
-    success.value = "Malzeme silindi.";
-    error.value = "";
-    await loadMaterials();
-  } catch (err) {
-    error.value = getErrorMessage(err, "Malzeme silinemedi");
-  }
-}
-
-onMounted(loadMaterials);
 </script>
