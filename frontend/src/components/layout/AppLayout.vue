@@ -47,7 +47,7 @@ function logout() {
 .layout-grid {
   display: grid;
   grid-template-columns: 210px 1fr;
-  gap: 16px;
+  gap: 20px;
 }
 
 .sidebar,
@@ -59,6 +59,7 @@ function logout() {
   display: grid;
   gap: 10px;
   align-content: start;
+  min-height: calc(100vh - 56px);
 }
 
 .toolbar-actions {
