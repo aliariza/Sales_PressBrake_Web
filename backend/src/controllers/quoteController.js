@@ -4,6 +4,7 @@ import {
   getQuoteById,
   listQuotes
 } from "../services/quoteService.js";
+import { updateQuote } from "../services/quoteService.js";
 import { generateQuotePdf } from "../services/quotePdfService.js";
 
 export async function listQuotesController(req, res) {
@@ -19,6 +20,11 @@ export async function getQuoteByIdController(req, res) {
 export async function createQuoteController(req, res) {
   const item = await createQuote(req.body, req.user);
   res.status(201).json({ item });
+}
+
+export async function updateQuoteController(req, res) {
+  const item = await updateQuote(req.params.id, req.body, req.user);
+  res.json({ item });
 }
 
 export async function deleteQuoteController(req, res) {

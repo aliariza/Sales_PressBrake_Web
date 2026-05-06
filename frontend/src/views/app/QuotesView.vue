@@ -54,6 +54,15 @@
                 <button
                   class="button-secondary icon-only-button"
                   :disabled="downloadingId === quote.id || deletingId === quote.id"
+                  @click="editQuote(quote)"
+                  aria-label="Teklifi düzenle"
+                  title="Teklifi düzenle"
+                >
+                  <IconGlyph name="edit" />
+                </button>
+                <button
+                  class="button-secondary icon-only-button"
+                  :disabled="downloadingId === quote.id || deletingId === quote.id"
                   @click="downloadQuotePdf(quote)"
                   aria-label="PDF indir"
                   title="PDF indir"
@@ -170,6 +179,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 
 import { http } from "../../api/http";
 import { listResource } from "../../api/resources";
@@ -180,6 +190,7 @@ import { getErrorMessage } from "../../utils/errors";
 import { formatCurrency, formatNumber } from "../../utils/formatters";
 
 const auth = useAuthStore();
+const router = useRouter();
 const quotes = ref([]);
 const selectedQuote = ref(null);
 const loadingList = ref(false);
@@ -244,6 +255,13 @@ async function removeQuote(quote) {
   } finally {
     deletingId.value = "";
   }
+}
+
+function editQuote(quote) {
+  router.push({
+    path: "/app/recommendation",
+    query: { edit: quote.id }
+  });
 }
 
 async function downloadQuotePdf(quote) {

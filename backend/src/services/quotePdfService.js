@@ -18,11 +18,10 @@ const COLORS = {
   white: "#ffffff"
 };
 
-const COMPANY_NAME = "Tumex Mümessillik ve Dış Ticaret Ltd. Şti.";
+const COMPANY_NAME = "Tumex Mümessillik ve Dış Tic. Ltd. Şti.";
 const COMPANY_LINES = [
   "İvedik OSB Melih Gökçek Blv.",
-  "63/33 Yenimahalle",
-  "Ankara / Türkiye",
+  "63/33 Yenimahalle Ankara / Türkiye",
   "info@tum-ex.com  |  +90 530 712 4897"
 ];
 
@@ -47,6 +46,21 @@ function formatCurrency(value) {
   }).format(Number(value || 0));
 }
 
+function formatOfferCurrency(value) {
+  const amount = Number(value || 0);
+
+  if (Number.isInteger(amount)) {
+    return `${new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)}.-`;
+  }
+
+  return formatCurrency(amount);
+}
+
 function formatNumber(value, suffix = "") {
   const parsed = Number(value || 0);
   return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(parsed)}${suffix}`;
@@ -55,6 +69,64 @@ function formatNumber(value, suffix = "") {
 function formatDate(value) {
   const parsed = value ? new Date(value) : new Date();
   return new Intl.DateTimeFormat("tr-TR").format(parsed);
+}
+
+function formatDateCompact(value) {
+  const parsed = value ? new Date(value) : new Date();
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}/${month}/${day}`;
+}
+
+function buildCustomerCode(name) {
+  const normalized = sanitizeText(name)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  const firstWord = normalized
+    .split(/[^a-z0-9]+/)
+    .find(Boolean);
+
+  return `${firstWord || "musteri"}-01`;
+}
+
+function splitAddressIntoTwoLines(address) {
+  const cleaned = sanitizeText(address);
+
+  if (!cleaned) {
+    return ["", ""];
+  }
+
+  const explicitLines = String(address)
+    .split(/\n+/)
+    .map((line) => sanitizeText(line))
+    .filter(Boolean);
+
+  if (explicitLines.length >= 2) {
+    return [explicitLines[0], explicitLines.slice(1).join(" ")];
+  }
+
+  const breakHints = [" No:", " No ", " Mah.", " Mah ", " Sok.", " Sok ", " Blv.", " Blv ", " Bulvarı ", " Caddesi "];
+
+  for (const hint of breakHints) {
+    const index = cleaned.indexOf(hint);
+    if (index > 12) {
+      const splitIndex = index + hint.length;
+      return [
+        cleaned.slice(0, splitIndex).trim(),
+        cleaned.slice(splitIndex).trim()
+      ];
+    }
+  }
+
+  const words = cleaned.split(/\s+/);
+  const midpoint = Math.ceil(words.length / 2);
+  return [
+    words.slice(0, midpoint).join(" "),
+    words.slice(midpoint).join(" ")
+  ];
 }
 
 function addDays(value, days) {
@@ -162,68 +234,119 @@ function amountToWords(value) {
   }
 
   const text = parts.join(" ve ");
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  return `Yalnız ${text.charAt(0).toUpperCase() + text.slice(1)}.`;
 }
 
 function drawTumexLogo(doc, x, y) {
   doc.image(LOGO_PATH, x, y, {
-    fit: [138, 60],
+    fit: [116, 50],
     align: "left",
     valign: "center"
   });
 }
 
-function drawInfoCard(doc, x, y, width, title, lines) {
-  const innerWidth = width - 24;
+function drawAttentionSection(doc, x, y, width, customer) {
+  const lineWidth = width - 12;
+  const rowHeight = 18;
+  const textOffsetY = 4;
+  const [addressLineOne, addressLineTwo] = splitAddressIntoTwoLines(customer.address || "");
 
+  const attentionLines = [
+    { text: customer.attention ? `Sn. ${customer.attention}` : "Sn.", align: "left", indent: 0 },
+    { text: customer.name || "", align: "left", indent: 0 },
+    { text: addressLineOne, align: "left", indent: 0 },
+    { text: addressLineTwo, align: "left", indent: 0 },
+    { text: `Tel: ${customer.tel || ""} | E-posta: ${customer.email || ""}`, align: "left", indent: 0 },
+    { text: `Vergi Dairesi: ${customer.taxOffice || ""}`, align: "left", indent: 0 }
+  ];
+
+  doc.font(REGULAR_FONT).fontSize(9).fillColor("#111111").text("DİKKATİNE:", x, y, {
+    width,
+    lineBreak: false
+  });
   doc
-    .save()
-    .roundedRect(x, y, width, 112, 0)
-    .fillAndStroke(COLORS.white, COLORS.border)
-    .restore();
+    .strokeColor("#8f8f8f")
+    .lineWidth(0.8)
+    .moveTo(x, y + 14)
+    .lineTo(x + lineWidth, y + 14)
+    .stroke();
 
-  doc.font(BOLD_FONT).fontSize(11).fillColor(COLORS.brandDark).text(title, x + 12, y + 12, { width: innerWidth });
+  let rowY = y + rowHeight;
+  attentionLines.forEach(({ text, align, indent = 0 }) => {
+    const cleaned = sanitizeText(text);
+    const isAddressLine = cleaned === addressLineOne || cleaned === addressLineTwo;
+    const fontSize = isAddressLine ? 8.6 : 9;
+    const textOptions = {
+      width: lineWidth - indent,
+      lineBreak: false,
+      align
+    };
 
-  let cursorY = y + 34;
-  for (const line of lines) {
-    const cleaned = sanitizeText(line);
-    if (!cleaned) {
-      continue;
-    }
+    doc
+      .font(REGULAR_FONT)
+      .fontSize(fontSize)
+      .fillColor("#111111")
+      .text(cleaned, x + indent, rowY + textOffsetY, textOptions);
 
-    doc.font(REGULAR_FONT).fontSize(9.5).fillColor(COLORS.text).text(cleaned, x + 12, cursorY, {
-      width: innerWidth,
-      lineGap: 2
-    });
+    const dividerY = rowY + rowHeight - 2;
+    doc
+      .strokeColor("#8f8f8f")
+      .lineWidth(0.8)
+      .moveTo(x, dividerY)
+      .lineTo(x + lineWidth, dividerY)
+      .stroke();
 
-    cursorY = doc.y + 4;
-  }
+    rowY += rowHeight;
+  });
+
+  return rowY;
 }
 
 function drawMetaCard(doc, x, y, width, quote) {
-  const rowLabelX = x + 14;
-  const rowValueX = x + width - 14;
   const createdAt = quote.createdAt || quote.createdAtLegacy;
   const validityDate = addDays(createdAt, 15);
-
-  doc.rect(x, y, width, 88).fillAndStroke(COLORS.white, COLORS.border);
-  doc.font(BOLD_FONT).fontSize(17).fillColor(COLORS.brandDark).text("TEKLİF", x + 14, y + 12, { lineBreak: false });
+  const tableX = x + 10;
+  const tableY = y + 34;
+  const rowHeight = 15.5;
+  const labelWidth = 70;
+  const valueWidth = width - labelWidth - 10;
 
   const rows = [
-    ["Teklif No", quote.quoteCode],
-    ["Tarih", formatDate(createdAt)],
-    ["Geçerlilik", formatDate(validityDate)]
+    ["TARİH", formatDateCompact(createdAt)],
+    ["TEKLİF #", quote.quoteCode],
+    ["GEÇERLİLİK", formatDateCompact(validityDate)],
+    ["MÜŞTERİ #", buildCustomerCode(quote.customer.name)]
   ];
 
-  let rowY = y + 38;
-  rows.forEach(([label, value]) => {
-    doc.font(REGULAR_FONT).fontSize(8.5).fillColor(COLORS.muted).text(label, rowLabelX, rowY, { lineBreak: false });
+  doc.font(BOLD_FONT).fontSize(18).fillColor("#111111");
+  const titleWidth = doc.widthOfString("TEKLİF");
+  doc.text("TEKLİF", x + width - titleWidth, y + 2, { lineBreak: false });
+
+  doc.save();
+  doc.lineWidth(0.8).strokeColor("#b8b8b8");
+  doc.rect(tableX + labelWidth, tableY, valueWidth, rowHeight * rows.length).stroke();
+  for (let index = 1; index < rows.length; index += 1) {
+    const rowY = tableY + rowHeight * index;
+    doc.moveTo(tableX + labelWidth, rowY).lineTo(tableX + labelWidth + valueWidth, rowY).stroke();
+  }
+  doc.restore();
+
+  rows.forEach(([label, value], index) => {
+    const rowY = tableY + index * rowHeight + 4;
+    doc.font(REGULAR_FONT).fontSize(8.5).fillColor("#111111").text(label, tableX, rowY, {
+      width: labelWidth - 6,
+      align: "right",
+      lineBreak: false
+    });
     doc
-      .font(BOLD_FONT)
+      .font(REGULAR_FONT)
       .fontSize(8.5)
-      .fillColor(COLORS.text)
-      .text(value, rowValueX - doc.widthOfString(value), rowY, { lineBreak: false });
-    rowY += 16;
+      .fillColor("#111111")
+      .text(value, tableX + labelWidth + 8, rowY, {
+        width: valueWidth - 16,
+        align: "center",
+        lineBreak: false
+      });
   });
 }
 
@@ -242,8 +365,6 @@ function drawTable(doc, x, y, width, items) {
     unitPrice: x + columns.code + columns.name + columns.qty,
     amount: x + columns.code + columns.name + columns.qty + columns.unitPrice
   };
-
-  doc.font(BOLD_FONT).fontSize(11).fillColor(COLORS.brandDark).text("Teklif Kalemleri", x, y - 18, { lineBreak: false });
 
   doc.rect(x, y, width, 24).fillAndStroke(COLORS.panelAlt, COLORS.border);
   doc.font(BOLD_FONT).fontSize(8.5).fillColor(COLORS.brandDark);
@@ -321,120 +442,88 @@ function buildPdfBuffer(quote) {
 
   doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill(COLORS.white);
 
-  const headerHeight = 110;
+  const headerHeight = 108;
   const headerY = PAGE_MARGIN;
-  const metaWidth = 164;
-  const brandWidth = CONTENT_WIDTH - metaWidth - 18;
+  const metaWidth = 208;
+  const brandWidth = CONTENT_WIDTH - metaWidth - 12;
 
-  doc.rect(PAGE_MARGIN, headerY, brandWidth, headerHeight).fillAndStroke(COLORS.white, COLORS.border);
-  doc.rect(PAGE_MARGIN + brandWidth + 18, headerY, metaWidth, headerHeight).fill(COLORS.brandDark);
-  drawMetaCard(doc, PAGE_MARGIN + brandWidth + 28, headerY + 12, metaWidth - 20, quote);
+  drawMetaCard(doc, PAGE_MARGIN + brandWidth + 8, headerY + 18, metaWidth, quote);
 
-  const logoX = PAGE_MARGIN + 12;
-  const logoY = headerY + 25;
-  const textX = PAGE_MARGIN + 190;
-  const textWidth = brandWidth - 206;
+  const logoX = PAGE_MARGIN + 10;
+  const logoY = headerY + 10;
+  const textX = PAGE_MARGIN + 8;
+  const textWidth = brandWidth - 16;
 
   drawTumexLogo(doc, logoX, logoY);
-  doc.font(BOLD_FONT).fontSize(11.5).fillColor(COLORS.brandDark).text(COMPANY_NAME, textX, headerY + 16, {
+  doc.font(BOLD_FONT).fontSize(8.9).fillColor("#111111").text(COMPANY_NAME, textX, headerY + 60, {
     width: textWidth,
-    lineGap: 1
+    lineBreak: false
   });
 
-  let companyY = doc.y + 6;
+  let companyY = headerY + 76;
   COMPANY_LINES.forEach((line) => {
-    doc.font(REGULAR_FONT).fontSize(8.7).fillColor(COLORS.muted).text(line, textX, companyY, {
+    doc.font(REGULAR_FONT).fontSize(8.8).fillColor("#111111").text(line, textX, companyY, {
       width: textWidth,
-      lineGap: 1
+      lineGap: 0.5
     });
     companyY = doc.y + 2;
   });
 
-  doc.font(BOLD_FONT).fontSize(24).fillColor(COLORS.brandDark).text("Makine Teklifi", PAGE_MARGIN, headerY + 136, {
-    lineBreak: false
-  });
-  doc.font(REGULAR_FONT).fontSize(10).fillColor(COLORS.muted).text(
-    `${quote.customer.name} için hazırlanmış ticari teklif özeti`,
-    PAGE_MARGIN,
-    headerY + 166,
-    { width: CONTENT_WIDTH }
-  );
-
-  const cardY = headerY + 198;
-  const cardGap = 18;
-  const cardWidth = (CONTENT_WIDTH - cardGap) / 2;
-  drawInfoCard(doc, PAGE_MARGIN, cardY, cardWidth, "Müşteri Bilgileri", [
-    quote.customer.name,
-    quote.customer.attention ? `Dikkatine: ${quote.customer.attention}` : "",
-    quote.customer.address,
-    quote.customer.tel ? `Tel: ${quote.customer.tel}` : "",
-    quote.customer.email ? `E-posta: ${quote.customer.email}` : "",
-    quote.customer.taxOffice ? `Vergi Dairesi: ${quote.customer.taxOffice}` : ""
-  ]);
-
-  drawInfoCard(doc, PAGE_MARGIN + cardWidth + cardGap, cardY, cardWidth, "Proje Bilgileri", [
-    `Malzeme: ${quote.materialNameSnapshot}`,
-    `Kalınlık: ${formatNumber(quote.thicknessMm, " mm")}`,
-    `Büküm Boyu: ${formatNumber(quote.bendLengthMm, " mm")}`,
-    `Makine: ${quote.machineModelSnapshot}`,
-    `Takım: ${quote.toolingNameSnapshot || "Standart"}`,
-    `Opsiyon Sayısı: ${(quote.selectedOptions || []).length}`
-  ]);
-
-  const tableBottomY = drawTable(doc, PAGE_MARGIN, cardY + 140, CONTENT_WIDTH, buildItems(quote));
-
-  const notesY = tableBottomY + 12;
-  const totalsWidth = 168;
-  const notesWidth = CONTENT_WIDTH - totalsWidth - 16;
-
-  doc.rect(PAGE_MARGIN, notesY, notesWidth, 108).fillAndStroke(COLORS.white, COLORS.border);
-  doc.font(BOLD_FONT).fontSize(11).fillColor(COLORS.brandDark).text("Diğer Şartlar", PAGE_MARGIN + 12, notesY + 12);
-  doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.text).text(
-    quote.notes ||
-      "Standart ticari şartlar geçerlidir. Teslimat planlaması, kurulum kapsamı ve eğitim detayları sipariş aşamasında netleştirilebilir.",
-    PAGE_MARGIN + 12,
-    notesY + 34,
-    { width: notesWidth - 24, lineGap: 3 }
-  );
-
-  const totalsX = PAGE_MARGIN + notesWidth + 16;
-  doc.rect(totalsX, notesY, totalsWidth, 108).fillAndStroke(COLORS.panel, COLORS.border);
-  doc.font(BOLD_FONT).fontSize(11).fillColor(COLORS.brandDark).text("Toplam", totalsX + 12, notesY + 12);
-
-  const totalRows = [
-    ["Makine Fiyatı", formatCurrency(quote.machinePriceUsd)],
-    ["Opsiyon Toplamı", formatCurrency(quote.optionsTotalUsd)]
-  ];
-
-  let totalsY = notesY + 40;
-  totalRows.forEach(([label, value]) => {
-    doc.font(REGULAR_FONT).fontSize(8.5).fillColor(COLORS.muted).text(label, totalsX + 12, totalsY);
-    doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.text).text(value, totalsX + 12, totalsY, {
-      width: totalsWidth - 24,
-      align: "right"
-    });
-    totalsY += 18;
-  });
+  const dividerY = Math.max(companyY + 8, headerY + 104);
 
   doc
-    .strokeColor(COLORS.border)
-    .lineWidth(1)
-    .moveTo(totalsX + 12, totalsY + 2)
-    .lineTo(totalsX + totalsWidth - 12, totalsY + 2)
+    .strokeColor("#111111")
+    .lineWidth(0.8)
+    .moveTo(PAGE_MARGIN, dividerY)
+    .lineTo(PAGE_WIDTH - PAGE_MARGIN, dividerY)
     .stroke();
 
-  doc.font(BOLD_FONT).fontSize(10).fillColor(COLORS.brandDark).text("Genel Toplam", totalsX + 12, totalsY + 12);
-  doc.font(BOLD_FONT).fontSize(13).fillColor(COLORS.brandDark).text(formatCurrency(quote.grandTotalUsd), totalsX + 12, totalsY + 10, {
-    width: totalsWidth - 24,
-    align: "right"
+  const attentionBottomY = drawAttentionSection(doc, PAGE_MARGIN, dividerY + 16, CONTENT_WIDTH * 0.52, quote.customer);
+
+  const tableBottomY = drawTable(doc, PAGE_MARGIN, attentionBottomY + 18, CONTENT_WIDTH, buildItems(quote));
+
+  const totalsY = tableBottomY + 12;
+  doc.rect(PAGE_MARGIN, totalsY, CONTENT_WIDTH, 22).fillAndStroke(COLORS.white, COLORS.border);
+  doc.font(BOLD_FONT).fontSize(10).fillColor("#111111").text("GENEL TOPLAM", PAGE_MARGIN + CONTENT_WIDTH - 184, totalsY + 6, {
+    width: 110,
+    align: "right",
+    lineBreak: false
+  });
+  doc.font(BOLD_FONT).fontSize(10).fillColor("#111111").text(formatOfferCurrency(quote.grandTotalUsd), PAGE_MARGIN + CONTENT_WIDTH - 68, totalsY + 6, {
+    width: 60,
+    align: "right",
+    lineBreak: false
   });
 
-  const wordsY = notesY + 126;
-  doc.rect(PAGE_MARGIN, wordsY, CONTENT_WIDTH, 56).fillAndStroke(COLORS.panelAlt, COLORS.border);
-  doc.font(BOLD_FONT).fontSize(10.5).fillColor(COLORS.brandDark).text("Yazıyla Tutar", PAGE_MARGIN + 12, wordsY + 18);
-  doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.text).text(amountToWords(quote.grandTotalUsd), PAGE_MARGIN + 130, wordsY + 18, {
-    width: CONTENT_WIDTH - 142
+  const wordsY = totalsY + 22;
+  doc.rect(PAGE_MARGIN, wordsY, CONTENT_WIDTH, 22).fillAndStroke(COLORS.white, COLORS.border);
+  doc.font(REGULAR_FONT).fontSize(8.7).fillColor("#111111").text(amountToWords(quote.grandTotalUsd), PAGE_MARGIN + 10, wordsY + 6, {
+    width: CONTENT_WIDTH - 20,
+    align: "right",
+    lineBreak: false
   });
+
+  const notesY = wordsY + 30;
+  const notesHeight = 126;
+  doc.rect(PAGE_MARGIN, notesY, CONTENT_WIDTH, notesHeight).fillAndStroke(COLORS.white, COLORS.border);
+  doc.font(BOLD_FONT).fontSize(11).fillColor("#111111").text("Diğer Şartlar", PAGE_MARGIN + 6, notesY + 6, {
+    lineBreak: false
+  });
+  doc
+    .strokeColor(COLORS.border)
+    .lineWidth(0.8)
+    .moveTo(PAGE_MARGIN, notesY + 20)
+    .lineTo(PAGE_MARGIN + CONTENT_WIDTH, notesY + 20)
+    .stroke();
+
+  if (sanitizeText(quote.notes)) {
+    doc.font(REGULAR_FONT).fontSize(8.8).fillColor("#111111").text(
+      sanitizeText(quote.notes),
+      PAGE_MARGIN + 8,
+      notesY + 28,
+      { width: CONTENT_WIDTH - 16, lineGap: 2 }
+    );
+  }
 
   drawFooter(doc, quote);
   doc.end();

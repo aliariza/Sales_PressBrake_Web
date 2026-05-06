@@ -242,6 +242,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { http } from "../../api/http";
 import { listResource } from "../../api/resources";
@@ -254,11 +255,14 @@ const materials = ref([]);
 const machineResults = ref([]);
 const toolingResults = ref([]);
 const options = ref([]);
+const editingQuoteId = ref("");
 const fetchingMaterials = ref(false);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref("");
 const success = ref("");
+const route = useRoute();
+const router = useRouter();
 
 const form = reactive({
   materialId: "",
@@ -303,6 +307,80 @@ const recommendationReady = computed(
   () => Boolean(form.materialNameSnapshot && form.thicknessMm && form.bendLengthMm)
 );
 const quoteReady = computed(() => Boolean(customerReady.value && selectedMachine.value && recommendationReady.value));
+const isEditing = computed(() => Boolean(editingQuoteId.value));
+
+function isUuid(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getUuidOrNull(...values) {
+  for (const value of values) {
+    if (isUuid(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function applyQuoteToForm(quote) {
+  editingQuoteId.value = quote.id;
+  form.materialId = quote.materialId || "";
+  form.materialNameSnapshot = quote.materialNameSnapshot || "";
+  form.thicknessMm = quote.thicknessMm || "";
+  form.bendLengthMm = quote.bendLengthMm || "";
+  form.notes = quote.notes || "";
+
+  customer.name = quote.customer?.name || "";
+  customer.attention = quote.customer?.attention || "";
+  customer.address = quote.customer?.address || "";
+  customer.tel = quote.customer?.tel || "";
+  customer.email = quote.customer?.email || "";
+  customer.taxOffice = quote.customer?.taxOffice || "";
+
+  selectedMachine.value = {
+    id: quote.machineId || null,
+    model: quote.machineModelSnapshot || "",
+    basePriceUSD: quote.machinePriceUsd || 0
+  };
+
+  selectedTooling.value = quote.toolingNameSnapshot
+    ? {
+        id: quote.toolingId || null,
+        name: quote.toolingNameSnapshot
+      }
+    : null;
+
+  selectedOptions.value = (quote.selectedOptions || []).map((option) => ({
+    id: option.optionId || null,
+    code: option.code,
+    name: option.name,
+    priceUsd: option.priceUsd
+  }));
+}
+
+function restoreSelections(previousMachine, previousTooling, previousOptions) {
+  if (previousMachine) {
+    const matchedMachine = machineResults.value.find(({ machine }) => {
+      const candidateId = machine._id || machine.id || null;
+      return (previousMachine.id && candidateId === previousMachine.id) || machine.model === previousMachine.model;
+    });
+    selectedMachine.value = matchedMachine?.machine || previousMachine;
+  }
+
+  if (previousTooling) {
+    const matchedTooling = toolingResults.value.find(({ tooling }) => {
+      const candidateId = tooling._id || tooling.id || null;
+      return (previousTooling.id && candidateId === previousTooling.id) || tooling.name === previousTooling.name;
+    });
+    selectedTooling.value = matchedTooling?.tooling || previousTooling;
+  }
+
+  if (previousOptions.length) {
+    const selectedCodes = new Set(previousOptions.map((option) => option.code));
+    selectedOptions.value = options.value.filter((option) => selectedCodes.has(option.code));
+  }
+}
 
 function selectMachine(machine) {
   selectedMachine.value = machine;
@@ -348,7 +426,26 @@ async function loadMaterials() {
   }
 }
 
-async function runRecommendation() {
+async function loadQuoteForEditing(id) {
+  try {
+    loading.value = true;
+    error.value = "";
+    const { data } = await http.get(`/quotes/${id}`);
+    applyQuoteToForm(data.item);
+    await runRecommendation({ preserveSelections: true, suppressSuccess: true });
+  } catch (err) {
+    error.value = getErrorMessage(err, "Teklif düzenleme için yüklenemedi");
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function runRecommendation(config = {}) {
+  const { preserveSelections = false, suppressSuccess = false } = config;
+  const previousMachine = preserveSelections ? selectedMachine.value : null;
+  const previousTooling = preserveSelections ? selectedTooling.value : null;
+  const previousOptions = preserveSelections ? [...selectedOptions.value] : [];
+
   loading.value = true;
   error.value = "";
   success.value = "";
@@ -365,10 +462,17 @@ async function runRecommendation() {
     toolingResults.value = data.toolings || [];
     options.value = data.options || [];
 
-    selectedMachine.value = machineResults.value[0]?.machine || null;
-    selectedTooling.value = toolingResults.value[0]?.tooling || null;
-    selectedOptions.value = [];
-    success.value = "Öneriler yüklendi.";
+    if (preserveSelections) {
+      restoreSelections(previousMachine, previousTooling, previousOptions);
+    } else {
+      selectedMachine.value = machineResults.value[0]?.machine || null;
+      selectedTooling.value = toolingResults.value[0]?.tooling || null;
+      selectedOptions.value = [];
+    }
+
+    if (!suppressSuccess) {
+      success.value = "Öneriler yüklendi.";
+    }
   } catch (err) {
     error.value = getErrorMessage(err, "Öneriler yüklenemedi");
   } finally {
@@ -384,17 +488,17 @@ async function saveQuote() {
   try {
     const payload = {
       customer: { ...customer },
-      materialId: form.materialId || null,
+      materialId: getUuidOrNull(form.materialId),
       materialNameSnapshot: form.materialNameSnapshot,
       thicknessMm: form.thicknessMm,
       bendLengthMm: form.bendLengthMm,
-      machineId: selectedMachine.value?._id || selectedMachine.value?.id || null,
+      machineId: getUuidOrNull(selectedMachine.value?._id, selectedMachine.value?.id),
       machineModelSnapshot: selectedMachine.value?.model || "",
       machinePriceUsd: selectedMachine.value?.basePriceUSD || 0,
-      toolingId: selectedTooling.value?._id || selectedTooling.value?.id || null,
+      toolingId: getUuidOrNull(selectedTooling.value?._id, selectedTooling.value?.id),
       toolingNameSnapshot: selectedTooling.value?.name || "",
       selectedOptions: selectedOptions.value.map((option) => ({
-        optionId: option._id || option.id || null,
+        optionId: getUuidOrNull(option._id, option.id),
         code: option.code,
         name: option.name,
         priceUsd: option.priceUsd
@@ -402,8 +506,16 @@ async function saveQuote() {
       notes: form.notes
     };
 
-    const { data } = await http.post("/quotes", payload);
-    success.value = `Teklif kaydedildi. Kod: ${data.item.quoteCode}`;
+    const { data } = isEditing.value
+      ? await http.patch(`/quotes/${editingQuoteId.value}`, payload)
+      : await http.post("/quotes", payload);
+    success.value = isEditing.value
+      ? `Teklif güncellendi. Kod: ${data.item.quoteCode}`
+      : `Teklif kaydedildi. Kod: ${data.item.quoteCode}`;
+
+    if (isEditing.value) {
+      router.push("/app/quotes");
+    }
   } catch (err) {
     error.value = getErrorMessage(err, "Teklif kaydedilemedi");
   } finally {
@@ -411,7 +523,13 @@ async function saveQuote() {
   }
 }
 
-onMounted(loadMaterials);
+onMounted(async () => {
+  await loadMaterials();
+
+  if (typeof route.query.edit === "string" && route.query.edit) {
+    await loadQuoteForEditing(route.query.edit);
+  }
+});
 </script>
 
 <style scoped>

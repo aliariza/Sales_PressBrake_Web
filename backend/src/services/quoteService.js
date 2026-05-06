@@ -4,9 +4,10 @@ import {
   deleteQuote as deleteQuoteFromDb,
   getAllQuotes,
   getQuoteById as getQuoteByIdFromDb,
-  getQuotesByOwnerUserId,
+  getQuotesByOwner,
   hasQuoteCode
 } from "../repositories/quoteRepository.js";
+import { updateQuote as updateQuoteInDb } from "../repositories/quoteRepository.js";
 
 import {
   getAllMachines,
@@ -88,7 +89,11 @@ function assertCanAccessQuote(quote, user) {
     return quote;
   }
 
-  if (!user?.sub || quote.ownerUserId !== user.sub) {
+  const userIdMatches = user?.sub && quote.ownerUserId === user.sub;
+  const usernameMatches =
+    !quote.ownerUserId && user?.username && quote.ownerUsername === user.username;
+
+  if (!userIdMatches && !usernameMatches) {
     const error = new Error("Bu teklife erişim izniniz yok");
     error.statusCode = 403;
     throw error;
@@ -278,34 +283,8 @@ function normalizeCustomer(customer) {
   };
 }
 
-export async function listQuotes(user) {
-  if (user?.role === "admin") {
-    return getAllQuotes();
-  }
-
-  if (!user?.sub) {
-    const error = new Error("Kullanıcı bilgisi bulunamadı");
-    error.statusCode = 401;
-    throw error;
-  }
-
-  return getQuotesByOwnerUserId(user.sub);
-}
-
-export async function getQuoteById(id, user) {
-  const quote = await findByIdOrThrow(id);
-  return assertCanAccessQuote(quote, user);
-}
-
-export async function createQuote(payload, user) {
-  if (!user?.sub || !user?.username) {
-    const error = new Error("Kullanıcı bilgisi bulunamadı");
-    error.statusCode = 401;
-    throw error;
-  }
-
+async function buildQuoteData(payload, user, existingQuote = null) {
   const customer = normalizeCustomer(payload.customer);
-
   const thicknessMm = parsePositiveNumber(payload.thicknessMm, "Kalınlık");
   const bendLengthMm = parsePositiveNumber(payload.bendLengthMm, "Büküm boyu");
 
@@ -326,19 +305,16 @@ export async function createQuote(payload, user) {
   );
 
   const options = await resolveSelectedOptions(payload.selectedOptions);
-
   const machinePriceUsd = parseNonNegativeNumber(
     machine.machinePriceUsd,
     "Makine fiyatı"
   );
+  const ownerUserId = user?.sub && isUuid(user.sub) ? user.sub : existingQuote?.ownerUserId ?? null;
 
-  const grandTotalUsd = machinePriceUsd + options.optionsTotalUsd;
-  const manualQuoteCode = payload.quoteCode?.trim() || "";
-
-  const baseQuote = {
-    legacyNo: payload.legacyNo?.toString().trim() || "",
+  return {
+    legacyNo: payload.legacyNo?.toString().trim() || existingQuote?.legacyNo || "",
     customer,
-    ownerUserId: user.sub,
+    ownerUserId,
     ownerUsername: user.username,
     materialId: material.materialId,
     materialNameSnapshot: material.materialNameSnapshot,
@@ -351,10 +327,44 @@ export async function createQuote(payload, user) {
     selectedOptions: options.selectedOptions,
     machinePriceUsd,
     optionsTotalUsd: options.optionsTotalUsd,
-    grandTotalUsd,
+    grandTotalUsd: machinePriceUsd + options.optionsTotalUsd,
     notes: payload.notes?.trim() || "",
-    createdAtLegacy: payload.createdAtLegacy?.trim() || new Date().toISOString()
+    createdAtLegacy: payload.createdAtLegacy?.trim() || existingQuote?.createdAtLegacy || new Date().toISOString()
   };
+}
+
+export async function listQuotes(user) {
+  if (user?.role === "admin") {
+    return getAllQuotes();
+  }
+
+  if (!user?.username) {
+    const error = new Error("Kullanıcı bilgisi bulunamadı");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  if (user?.sub && isUuid(user.sub)) {
+    return getQuotesByOwner(user.sub, user.username);
+  }
+
+  return getQuotesByOwner(null, user.username);
+}
+
+export async function getQuoteById(id, user) {
+  const quote = await findByIdOrThrow(id);
+  return assertCanAccessQuote(quote, user);
+}
+
+export async function createQuote(payload, user) {
+  if (!user?.username) {
+    const error = new Error("Kullanıcı bilgisi bulunamadı");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const baseQuote = await buildQuoteData(payload, user);
+  const manualQuoteCode = payload.quoteCode?.trim() || "";
 
   if (manualQuoteCode) {
     return createQuoteInDb({
@@ -375,6 +385,29 @@ export async function createQuote(payload, user) {
       }
     }
   }
+}
+
+export async function updateQuote(id, payload, user) {
+  if (!user?.username) {
+    const error = new Error("Kullanıcı bilgisi bulunamadı");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const existingQuote = await getQuoteById(id, user);
+  const quoteData = await buildQuoteData(payload, user, existingQuote);
+  const updatedQuote = await updateQuoteInDb(id, {
+    ...quoteData,
+    quoteCode: existingQuote.quoteCode
+  });
+
+  if (!updatedQuote) {
+    const error = new Error("Teklif güncellenemedi");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return updatedQuote;
 }
 
 export async function deleteQuote(id) {

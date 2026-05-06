@@ -1,5 +1,13 @@
 import { pool } from "../db/postgres.js";
 
+function isUuid(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function uuidOrNull(value) {
+  return isUuid(value) ? value : null;
+}
+
 function toNumberOrNull(value) {
   if (value === null || value === undefined) {
     return null;
@@ -114,6 +122,80 @@ export async function getQuotesByOwnerUserId(ownerUserId) {
     ORDER BY created_at DESC
     `,
     [ownerUserId]
+  );
+
+  return result.rows.map(mapQuoteRow);
+}
+
+export async function getQuotesByOwner(ownerUserId, ownerUsername) {
+  if (ownerUserId) {
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        legacy_no,
+        quote_code,
+        customer,
+        owner_user_id,
+        owner_username,
+        material_id,
+        material_name_snapshot,
+        thickness_mm,
+        bend_length_mm,
+        machine_id,
+        machine_model_snapshot,
+        tooling_id,
+        tooling_name_snapshot,
+        selected_options,
+        machine_price_usd,
+        options_total_usd,
+        grand_total_usd,
+        notes,
+        created_at_legacy,
+        raw_data,
+        created_at,
+        updated_at
+      FROM quotes
+      WHERE owner_user_id = $1 OR (owner_user_id IS NULL AND owner_username = $2)
+      ORDER BY created_at DESC
+      `,
+      [ownerUserId, ownerUsername]
+    );
+
+    return result.rows.map(mapQuoteRow);
+  }
+
+  const result = await pool.query(
+    `
+    SELECT
+      id,
+      legacy_no,
+      quote_code,
+      customer,
+      owner_user_id,
+      owner_username,
+      material_id,
+      material_name_snapshot,
+      thickness_mm,
+      bend_length_mm,
+      machine_id,
+      machine_model_snapshot,
+      tooling_id,
+      tooling_name_snapshot,
+      selected_options,
+      machine_price_usd,
+      options_total_usd,
+      grand_total_usd,
+      notes,
+      created_at_legacy,
+      raw_data,
+      created_at,
+      updated_at
+    FROM quotes
+    WHERE owner_user_id IS NULL AND owner_username = $1
+    ORDER BY created_at DESC
+    `,
+    [ownerUsername]
   );
 
   return result.rows.map(mapQuoteRow);
@@ -267,15 +349,15 @@ export async function createQuote(quoteData) {
       legacyNo || null,
       quoteCode,
       JSON.stringify(customer),
-      ownerUserId,
+      uuidOrNull(ownerUserId),
       ownerUsername,
-      materialId || null,
+      uuidOrNull(materialId),
       materialNameSnapshot,
       thicknessMm,
       bendLengthMm,
-      machineId || null,
+      uuidOrNull(machineId),
       machineModelSnapshot,
-      toolingId || null,
+      uuidOrNull(toolingId),
       toolingNameSnapshot || "",
       JSON.stringify(selectedOptions || []),
       machinePriceUsd,
@@ -286,6 +368,112 @@ export async function createQuote(quoteData) {
       JSON.stringify(quoteData)
     ]
   );
+
+  return mapQuoteRow(result.rows[0]);
+}
+
+export async function updateQuote(id, quoteData) {
+  const {
+    legacyNo,
+    quoteCode,
+    customer,
+    ownerUserId,
+    ownerUsername,
+    materialId,
+    materialNameSnapshot,
+    thicknessMm,
+    bendLengthMm,
+    machineId,
+    machineModelSnapshot,
+    toolingId,
+    toolingNameSnapshot,
+    selectedOptions,
+    machinePriceUsd,
+    optionsTotalUsd,
+    grandTotalUsd,
+    notes,
+    createdAtLegacy
+  } = quoteData;
+
+  const result = await pool.query(
+    `
+    UPDATE quotes
+    SET
+      legacy_no = $1,
+      quote_code = $2,
+      customer = $3::jsonb,
+      owner_user_id = $4,
+      owner_username = $5,
+      material_id = $6,
+      material_name_snapshot = $7,
+      thickness_mm = $8,
+      bend_length_mm = $9,
+      machine_id = $10,
+      machine_model_snapshot = $11,
+      tooling_id = $12,
+      tooling_name_snapshot = $13,
+      selected_options = $14::jsonb,
+      machine_price_usd = $15,
+      options_total_usd = $16,
+      grand_total_usd = $17,
+      notes = $18,
+      created_at_legacy = $19,
+      raw_data = $20::jsonb,
+      updated_at = NOW()
+    WHERE id = $21
+    RETURNING
+      id,
+      legacy_no,
+      quote_code,
+      customer,
+      owner_user_id,
+      owner_username,
+      material_id,
+      material_name_snapshot,
+      thickness_mm,
+      bend_length_mm,
+      machine_id,
+      machine_model_snapshot,
+      tooling_id,
+      tooling_name_snapshot,
+      selected_options,
+      machine_price_usd,
+      options_total_usd,
+      grand_total_usd,
+      notes,
+      created_at_legacy,
+      raw_data,
+      created_at,
+      updated_at
+    `,
+    [
+      legacyNo || null,
+      quoteCode,
+      JSON.stringify(customer),
+      uuidOrNull(ownerUserId),
+      ownerUsername,
+      uuidOrNull(materialId),
+      materialNameSnapshot,
+      thicknessMm,
+      bendLengthMm,
+      uuidOrNull(machineId),
+      machineModelSnapshot,
+      uuidOrNull(toolingId),
+      toolingNameSnapshot || "",
+      JSON.stringify(selectedOptions || []),
+      machinePriceUsd,
+      optionsTotalUsd,
+      grandTotalUsd,
+      notes || "",
+      createdAtLegacy || "",
+      JSON.stringify(quoteData),
+      id
+    ]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
 
   return mapQuoteRow(result.rows[0]);
 }
