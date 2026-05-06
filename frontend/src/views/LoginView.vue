@@ -84,7 +84,7 @@ label {
 
 input {
   border: 1px solid var(--line-soft);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 12px 14px;
 }
 
