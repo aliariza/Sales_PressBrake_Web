@@ -114,8 +114,8 @@ export async function buildRecommendations({
     machines: machines.map((machine) => ({
       machine,
       reason:
-        `${material.name} icin uygun; maksimum kalinlik (${machine.maxThicknessMm} mm) ` +
-        `ve calisma boyu (${machine.workingLengthMm} mm) gereksinimi karsiliyor.`
+        `${material.name} için uygun; maksimum kalınlık (${machine.maxThicknessMm} mm) ` +
+        `ve çalışma boyu (${machine.workingLengthMm} mm) gereksinimi karşılıyor.`
     })),
     toolings,
     options

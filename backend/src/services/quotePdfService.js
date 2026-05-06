@@ -7,8 +7,8 @@ const RIGHT = PAGE_WIDTH - 48;
 const TOP = PAGE_HEIGHT - 48;
 const COMPANY_NAME = "Sales Press Brake";
 const COMPANY_LINES = [
-  "Endustriyel Cozumler ve Tekliflendirme Hizmetleri",
-  "Ankara, Turkiye",
+  "Endüstriyel Çözümler ve Tekliflendirme Hizmetleri",
+  "Ankara, Türkiye",
   "info@salespressbrake.local  |  +90 530 000 0000"
 ];
 
@@ -220,16 +220,16 @@ function buildPdfContent(quote) {
   operations.push(makeText(LEFT + 16, y - 40, COMPANY_LINES[1], 10));
   operations.push(makeText(LEFT + 16, y - 54, COMPANY_LINES[2], 10));
 
-  operations.push(makeBoldText(RIGHT - 132, y - 6, "TEKLIF", 18));
+  operations.push(makeBoldText(RIGHT - 132, y - 6, "TEKLİF", 18));
   operations.push(makeText(RIGHT - 132, y - 28, `Teklif No: ${quote.quoteCode}`, 10));
   operations.push(makeText(RIGHT - 132, y - 42, `Tarih: ${formatDate(quote.createdAt || quote.createdAtLegacy)}`, 10));
-  operations.push(makeText(RIGHT - 132, y - 56, `Gecerlilik: ${formatDate(quote.createdAt || quote.createdAtLegacy)}`, 10));
+  operations.push(makeText(RIGHT - 132, y - 56, `Geçerlilik: ${formatDate(quote.createdAt || quote.createdAtLegacy)}`, 10));
   y -= 102;
 
   operations.push(makeFilledRect(LEFT, y - 108, 236, 108, [0.985, 0.989, 0.997], [0.8, 0.84, 0.9]));
   operations.push(makeFilledRect(LEFT + 262, y - 108, 237, 108, [0.985, 0.989, 0.997], [0.8, 0.84, 0.9]));
-  operations.push(makeBoldText(LEFT + 14, y - 18, "Musteri", 13));
-  operations.push(makeBoldText(LEFT + 276, y - 18, "Proje Detaylari", 13));
+  operations.push(makeBoldText(LEFT + 14, y - 18, "Müşteri", 13));
+  operations.push(makeBoldText(LEFT + 276, y - 18, "Proje Detayları", 13));
   y -= 36;
 
   const customerLines = [
@@ -248,10 +248,10 @@ function buildPdfContent(quote) {
 
   const projectLines = [
     `Malzeme: ${quote.materialNameSnapshot}`,
-    `Kalinlik: ${formatNumber(quote.thicknessMm, " mm")}`,
-    `Bukum Boyu: ${formatNumber(quote.bendLengthMm, " mm")}`,
+    `Kalınlık: ${formatNumber(quote.thicknessMm, " mm")}`,
+    `Büküm Boyu: ${formatNumber(quote.bendLengthMm, " mm")}`,
     `Makine: ${quote.machineModelSnapshot}`,
-    `Takim: ${quote.toolingNameSnapshot || "-"}`,
+    `Takım: ${quote.toolingNameSnapshot || "-"}`,
     `Opsiyon: ${(quote.selectedOptions || []).length}`
   ];
 
@@ -297,30 +297,30 @@ function buildPdfContent(quote) {
 
   y -= 14;
   operations.push(makeFilledRect(RIGHT - 214, y - 64, 214, 64, [0.97, 0.98, 1], [0.72, 0.8, 0.9]));
-  operations.push(makeText(RIGHT - 198, y - 16, `Makine Fiyati: ${formatCurrency(quote.machinePriceUsd)}`, 10));
-  operations.push(makeText(RIGHT - 198, y - 32, `Opsiyon Toplami: ${formatCurrency(quote.optionsTotalUsd)}`, 10));
+  operations.push(makeText(RIGHT - 198, y - 16, `Makine Fiyatı: ${formatCurrency(quote.machinePriceUsd)}`, 10));
+  operations.push(makeText(RIGHT - 198, y - 32, `Opsiyon Toplamı: ${formatCurrency(quote.optionsTotalUsd)}`, 10));
   operations.push(makeBoldText(RIGHT - 198, y - 50, `Genel Toplam: ${formatCurrency(quote.grandTotalUsd)}`, 13));
   y -= 84;
 
   operations.push(makeFilledRect(LEFT, y - 46, RIGHT - LEFT, 46, [0.985, 0.989, 0.997], [0.82, 0.86, 0.9]));
-  operations.push(makeBoldText(LEFT + 12, y - 18, "Yaziyla Tutar", 11));
+  operations.push(makeBoldText(LEFT + 12, y - 18, "Yazıyla Tutar", 11));
   addWrappedText(operations, LEFT + 132, y - 18, amountToWords(quote.grandTotalUsd), 10, RIGHT - LEFT - 144, 13);
   y -= 62;
 
   operations.push(makeFilledRect(LEFT, y - 96, RIGHT - LEFT, 96, [1, 1, 1], [0.8, 0.84, 0.9]));
-  operations.push(makeBoldText(LEFT + 12, y - 18, "Diger Sartlar", 12));
+  operations.push(makeBoldText(LEFT + 12, y - 18, "Diğer Şartlar", 12));
   addWrappedText(
     operations,
     LEFT + 12,
     y - 38,
-    quote.notes || "Standart ticari sartlar gecerlidir. Teslimat planlamasi, kurulum kapsami ve egitim detaylari siparis asamasinda netlestirilebilir.",
+    quote.notes || "Standart ticari şartlar geçerlidir. Teslimat planlaması, kurulum kapsamı ve eğitim detayları sipariş aşamasında netleştirilebilir.",
     10,
     RIGHT - LEFT - 24,
     13
   );
 
   operations.push(makeLine(LEFT, 54, RIGHT, 54, 0.8));
-  operations.push(makeText(LEFT, 38, `${quote.customer.name} icin hazirlandi`, 9));
+  operations.push(makeText(LEFT, 38, `${quote.customer.name} için hazırlandı`, 9));
   operations.push(makeText(RIGHT - 126, 38, `Teklif ${quote.quoteCode}`, 9));
 
   return operations.join("\n");
