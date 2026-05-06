@@ -330,17 +330,24 @@ function buildPdfBuffer(quote) {
   doc.rect(PAGE_MARGIN + brandWidth + 18, headerY, metaWidth, headerHeight).fill(COLORS.brandDark);
   drawMetaCard(doc, PAGE_MARGIN + brandWidth + 28, headerY + 12, metaWidth - 20, quote);
 
-  drawTumexLogo(doc, PAGE_MARGIN + 12, headerY + 22);
-  doc.font(BOLD_FONT).fontSize(13).fillColor(COLORS.brandDark).text(COMPANY_NAME, PAGE_MARGIN + 164, headerY + 18, {
-    width: brandWidth - 180
+  const logoX = PAGE_MARGIN + 12;
+  const logoY = headerY + 25;
+  const textX = PAGE_MARGIN + 190;
+  const textWidth = brandWidth - 206;
+
+  drawTumexLogo(doc, logoX, logoY);
+  doc.font(BOLD_FONT).fontSize(11.5).fillColor(COLORS.brandDark).text(COMPANY_NAME, textX, headerY + 16, {
+    width: textWidth,
+    lineGap: 1
   });
 
-  let companyY = headerY + 42;
+  let companyY = doc.y + 6;
   COMPANY_LINES.forEach((line) => {
-    doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.muted).text(line, PAGE_MARGIN + 164, companyY, {
-      width: brandWidth - 180
+    doc.font(REGULAR_FONT).fontSize(8.7).fillColor(COLORS.muted).text(line, textX, companyY, {
+      width: textWidth,
+      lineGap: 1
     });
-    companyY += 15;
+    companyY = doc.y + 2;
   });
 
   doc.font(BOLD_FONT).fontSize(24).fillColor(COLORS.brandDark).text("Makine Teklifi", PAGE_MARGIN, headerY + 136, {
