@@ -15,6 +15,8 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
+document.documentElement.lang = "tr"
+
 const themeStore = useThemeStore()
 themeStore.startSystemSync()
 
