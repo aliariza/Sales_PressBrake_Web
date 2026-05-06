@@ -1,24 +1,32 @@
+import PDFDocument from "pdfkit";
+import { fileURLToPath } from "node:url";
+
 import { getQuoteById } from "./quoteService.js";
 
-const PAGE_WIDTH = 595;
-const PAGE_HEIGHT = 842;
-const LEFT = 48;
-const RIGHT = PAGE_WIDTH - 48;
-const TOP = PAGE_HEIGHT - 48;
+const PAGE_MARGIN = 42;
+const PAGE_WIDTH = 595.28;
+const PAGE_HEIGHT = 841.89;
+const CONTENT_WIDTH = PAGE_WIDTH - PAGE_MARGIN * 2;
+const COLORS = {
+  brand: "#2563eb",
+  brandDark: "#16315f",
+  text: "#18212f",
+  muted: "#5e6b7f",
+  border: "#d7dfeb",
+  panel: "#f5f8fc",
+  panelAlt: "#edf3ff",
+  white: "#ffffff"
+};
+
 const COMPANY_NAME = "Tumex Mümessillik ve Dış Ticaret Ltd. Şti.";
 const COMPANY_LINES = [
   "Birlik Mah. 408. Sok. No:9/2 Evkur Birlik Apt.",
   "Çankaya / Ankara",
   "info@tum-ex.com  |  +90 530 712 4897"
 ];
-const BRAND = [0.12, 0.34, 0.69];
-const BRAND_DARK = [0.08, 0.18, 0.34];
-const INK = [0.11, 0.15, 0.23];
-const MUTED = [0.38, 0.45, 0.54];
-const BORDER = [0.79, 0.84, 0.9];
-const PANEL = [0.97, 0.98, 0.995];
-const PANEL_ALT = [0.94, 0.96, 0.99];
-const WHITE = [1, 1, 1];
+
+const REGULAR_FONT = fileURLToPath(new URL("../../assets/fonts/Verdana.ttf", import.meta.url));
+const BOLD_FONT = fileURLToPath(new URL("../../assets/fonts/Verdana-Bold.ttf", import.meta.url));
 
 function sanitizeText(value) {
   return String(value ?? "")
@@ -26,13 +34,6 @@ function sanitizeText(value) {
     .replace(/\r/g, "\n")
     .replace(/[^\S\n]+/g, " ")
     .trim();
-}
-
-function escapePdfText(value) {
-  return sanitizeText(value)
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
 }
 
 function formatCurrency(value) {
@@ -60,91 +61,11 @@ function addDays(value, days) {
   return parsed;
 }
 
-function textWidthEstimate(text, fontSize) {
-  return sanitizeText(text).length * fontSize * 0.52;
-}
-
-function wrapText(text, fontSize, maxWidth) {
-  const normalized = sanitizeText(text);
-  if (!normalized) {
-    return [""];
-  }
-
-  const words = normalized.split(" ");
-  const lines = [];
-  let currentLine = "";
-
-  for (const word of words) {
-    const candidate = currentLine ? `${currentLine} ${word}` : word;
-    if (textWidthEstimate(candidate, fontSize) <= maxWidth || !currentLine) {
-      currentLine = candidate;
-      continue;
-    }
-
-    lines.push(currentLine);
-    currentLine = word;
-  }
-
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-
-  return lines;
-}
-
-function colorCommands(rgb, mode = "rg") {
-  return `${rgb[0]} ${rgb[1]} ${rgb[2]} ${mode}`;
-}
-
-function makeTextWithFont(font, x, y, text, size = 11, fillRgb = INK) {
-  return `BT /${font} ${size} Tf ${colorCommands(fillRgb)} 1 0 0 1 ${x} ${y} Tm (${escapePdfText(text)}) Tj ET 0 0 0 rg`;
-}
-
-function makeText(x, y, text, size = 11, fillRgb = INK) {
-  return makeTextWithFont("F1", x, y, text, size, fillRgb);
-}
-
-function makeBoldText(x, y, text, size = 11, fillRgb = INK) {
-  return makeTextWithFont("F2", x, y, text, size, fillRgb);
-}
-
-function makeRightText(x, y, text, size = 11, fillRgb = INK, bold = false) {
-  const width = textWidthEstimate(text, size);
-  return bold
-    ? makeBoldText(x - width, y, text, size, fillRgb)
-    : makeText(x - width, y, text, size, fillRgb);
-}
-
-function makeLine(x1, y1, x2, y2, width = 1) {
-  return `${width} w ${x1} ${y1} m ${x2} ${y2} l S`;
-}
-
-function makePolyline(points, width = 1, strokeRgb = INK) {
-  if (!points.length) {
-    return "";
-  }
-
-  const [first, ...rest] = points;
-  return `${colorCommands(strokeRgb, "RG")} ${width} w ${first[0]} ${first[1]} m ${rest
-    .map(([x, y]) => `${x} ${y} l`)
-    .join(" ")} S 0 0 0 RG`;
-}
-
-function makeRect(x, y, width, height, lineWidth = 1) {
-  return `${lineWidth} w ${x} ${y} ${width} ${height} re S`;
-}
-
-function makeFilledRect(x, y, width, height, fillRgb = [0.95, 0.97, 1], strokeRgb = [0.78, 0.84, 0.9]) {
-  const [fr, fg, fb] = fillRgb;
-  const [sr, sg, sb] = strokeRgb;
-  return `${fr} ${fg} ${fb} rg ${sr} ${sg} ${sb} RG 1 w ${x} ${y} ${width} ${height} re B 0 0 0 rg 0 0 0 RG`;
-}
-
 function buildItems(quote) {
   const items = [
     {
-      code: "MAKİNE",
-      name: quote.machineModelSnapshot,
+      code: quote.machineModelSnapshot,
+      name: "Ana Makine",
       quantity: "1",
       unitPrice: formatCurrency(quote.machinePriceUsd),
       amount: formatCurrency(quote.machinePriceUsd)
@@ -205,264 +126,346 @@ function integerToWords(number) {
 
   if (number < 100) {
     const remainder = number % 10;
-    return remainder ? `${tens[Math.floor(number / 10)]}-${ones[remainder]}` : tens[Math.floor(number / 10)];
+    return remainder ? `${tens[Math.floor(number / 10)]} ${ones[remainder]}` : tens[Math.floor(number / 10)];
   }
 
   if (number < 1000) {
+    const hundreds = Math.floor(number / 100);
     const remainder = number % 100;
-    return remainder
-      ? `${ones[Math.floor(number / 100)]} yüz ${integerToWords(remainder)}`
-      : `${ones[Math.floor(number / 100)]} yüz`;
+    const prefix = hundreds === 1 ? "yüz" : `${ones[hundreds]} yüz`;
+    return remainder ? `${prefix} ${integerToWords(remainder)}` : prefix;
   }
 
   if (number < 1000000) {
+    const thousands = Math.floor(number / 1000);
     const remainder = number % 1000;
-    return remainder
-      ? `${integerToWords(Math.floor(number / 1000))} bin ${integerToWords(remainder)}`
-      : `${integerToWords(Math.floor(number / 1000))} bin`;
+    const prefix = thousands === 1 ? "bin" : `${integerToWords(thousands)} bin`;
+    return remainder ? `${prefix} ${integerToWords(remainder)}` : prefix;
   }
 
+  const millions = Math.floor(number / 1000000);
   const remainder = number % 1000000;
-  return remainder
-    ? `${integerToWords(Math.floor(number / 1000000))} milyon ${integerToWords(remainder)}`
-    : `${integerToWords(Math.floor(number / 1000000))} milyon`;
+  const prefix = `${integerToWords(millions)} milyon`;
+  return remainder ? `${prefix} ${integerToWords(remainder)}` : prefix;
 }
 
 function amountToWords(value) {
   const amount = Number(value || 0);
   const dollars = Math.floor(amount);
   const cents = Math.round((amount - dollars) * 100);
-  const dollarWords = integerToWords(Math.max(dollars, 0));
-  const centWords = integerToWords(Math.max(cents, 0));
+  const parts = [`${integerToWords(Math.max(dollars, 0))} Amerika Birleşik Devletleri Doları`];
 
-  return `${dollarWords} dolar ve ${centWords} sent`.replace(/^./, (letter) =>
-    letter.toUpperCase()
-  );
+  if (cents > 0) {
+    parts.push(`${integerToWords(cents)} sent`);
+  }
+
+  const text = parts.join(" ve ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function addWrappedText(operations, x, y, text, size, maxWidth, lineHeight) {
-  const lines = wrapText(text, size, maxWidth);
+function drawTumexLogo(doc, x, y) {
+  doc
+    .save()
+    .lineWidth(5)
+    .strokeColor(COLORS.brand)
+    .polygon(
+      [x, y + 18],
+      [x + 38, y],
+      [x + 76, y + 18],
+      [x + 38, y + 36]
+    )
+    .stroke();
 
-  lines.forEach((line, index) => {
-    operations.push(makeText(x, y - index * lineHeight, line, size));
-  });
+  doc
+    .lineWidth(2.5)
+    .polygon(
+      [x + 17, y + 18],
+      [x + 38, y + 8],
+      [x + 59, y + 18],
+      [x + 38, y + 28]
+    )
+    .stroke();
 
-  return y - lines.length * lineHeight;
+  doc
+    .font(BOLD_FONT)
+    .fontSize(16)
+    .fillColor(COLORS.brand)
+    .text("tumex", x + 13, y + 9, { lineBreak: false });
+
+  doc.restore();
 }
 
-function addTumexLogo(operations, x, y) {
-  const outer = [
-    [x, y],
-    [x + 38, y + 20],
-    [x + 76, y],
-    [x + 38, y - 20],
-    [x, y]
-  ];
-  const inner = [
-    [x + 17, y],
-    [x + 38, y + 11],
-    [x + 59, y],
-    [x + 38, y - 11],
-    [x + 17, y]
-  ];
+function drawInfoCard(doc, x, y, width, title, lines) {
+  const innerWidth = width - 24;
 
-  operations.push(makePolyline(outer, 4.8, [0.24, 0.4, 0.95]));
-  operations.push(makePolyline(inner, 2.4, [0.24, 0.4, 0.95]));
-  operations.push(makeBoldText(x + 13, y - 5, "tumex", 16, [0.24, 0.4, 0.95]));
+  doc
+    .save()
+    .roundedRect(x, y, width, 112, 0)
+    .fillAndStroke(COLORS.white, COLORS.border)
+    .restore();
+
+  doc.font(BOLD_FONT).fontSize(11).fillColor(COLORS.brandDark).text(title, x + 12, y + 12, { width: innerWidth });
+
+  let cursorY = y + 34;
+  for (const line of lines) {
+    const cleaned = sanitizeText(line);
+    if (!cleaned) {
+      continue;
+    }
+
+    doc.font(REGULAR_FONT).fontSize(9.5).fillColor(COLORS.text).text(cleaned, x + 12, cursorY, {
+      width: innerWidth,
+      lineGap: 2
+    });
+
+    cursorY = doc.y + 4;
+  }
 }
 
-function buildPdfContent(quote) {
-  const operations = [];
+function drawMetaCard(doc, x, y, width, quote) {
+  const rowLabelX = x + 14;
+  const rowValueX = x + width - 14;
   const createdAt = quote.createdAt || quote.createdAtLegacy;
   const validityDate = addDays(createdAt, 15);
 
-  operations.push(makeFilledRect(LEFT, TOP - 110, RIGHT - LEFT, 110, BRAND_DARK, BRAND_DARK));
-  operations.push(makeFilledRect(LEFT, TOP - 110, 260, 110, WHITE, WHITE));
-  addTumexLogo(operations, LEFT + 16, TOP - 38);
-  operations.push(makeBoldText(LEFT + 108, TOP - 28, COMPANY_NAME, 13, BRAND_DARK));
-  operations.push(makeText(LEFT + 108, TOP - 46, COMPANY_LINES[0], 9, MUTED));
-  operations.push(makeText(LEFT + 108, TOP - 60, COMPANY_LINES[1], 9, MUTED));
-  operations.push(makeText(LEFT + 108, TOP - 74, COMPANY_LINES[2], 9, MUTED));
+  doc.rect(x, y, width, 88).fillAndStroke(COLORS.white, COLORS.border);
+  doc.font(BOLD_FONT).fontSize(17).fillColor(COLORS.brandDark).text("TEKLİF", x + 14, y + 12, { lineBreak: false });
 
-  const metaX = RIGHT - 164;
-  operations.push(makeFilledRect(metaX, TOP - 88, 164, 72, WHITE, BORDER));
-  operations.push(makeBoldText(metaX + 12, TOP - 34, "TEKLİF", 18, BRAND_DARK));
-  operations.push(makeText(metaX + 12, TOP - 52, `Teklif No`, 9, MUTED));
-  operations.push(makeRightText(metaX + 150, TOP - 52, quote.quoteCode, 9, INK, true));
-  operations.push(makeText(metaX + 12, TOP - 66, `Tarih`, 9, MUTED));
-  operations.push(makeRightText(metaX + 150, TOP - 66, formatDate(createdAt), 9, INK));
-  operations.push(makeText(metaX + 12, TOP - 80, `Geçerlilik`, 9, MUTED));
-  operations.push(makeRightText(metaX + 150, TOP - 80, formatDate(validityDate), 9, INK));
+  const rows = [
+    ["Teklif No", quote.quoteCode],
+    ["Tarih", formatDate(createdAt)],
+    ["Geçerlilik", formatDate(validityDate)]
+  ];
 
-  operations.push(makeBoldText(LEFT, TOP - 142, "Makine Teklifi", 23, BRAND_DARK));
-  operations.push(
-    makeText(
-      LEFT,
-      TOP - 160,
-      `${quote.customer.name} için hazırlanmış ticari teklif özeti`,
-      10,
-      MUTED
-    )
+  let rowY = y + 38;
+  rows.forEach(([label, value]) => {
+    doc.font(REGULAR_FONT).fontSize(8.5).fillColor(COLORS.muted).text(label, rowLabelX, rowY, { lineBreak: false });
+    doc
+      .font(BOLD_FONT)
+      .fontSize(8.5)
+      .fillColor(COLORS.text)
+      .text(value, rowValueX - doc.widthOfString(value), rowY, { lineBreak: false });
+    rowY += 16;
+  });
+}
+
+function drawTable(doc, x, y, width, items) {
+  const columns = {
+    code: 105,
+    name: 190,
+    qty: 48,
+    unitPrice: 84,
+    amount: 84
+  };
+  const columnX = {
+    code: x + 12,
+    name: x + columns.code,
+    qty: x + columns.code + columns.name,
+    unitPrice: x + columns.code + columns.name + columns.qty,
+    amount: x + columns.code + columns.name + columns.qty + columns.unitPrice
+  };
+
+  doc.font(BOLD_FONT).fontSize(11).fillColor(COLORS.brandDark).text("Teklif Kalemleri", x, y - 18, { lineBreak: false });
+
+  doc.rect(x, y, width, 24).fillAndStroke(COLORS.panelAlt, COLORS.border);
+  doc.font(BOLD_FONT).fontSize(8.5).fillColor(COLORS.brandDark);
+  doc.text("Model", columnX.code, y + 8, { lineBreak: false });
+  doc.text("Ürün Adı", columnX.name, y + 8, { lineBreak: false });
+  doc.text("Miktar", columnX.qty, y + 8, { lineBreak: false });
+  doc.text("Birim Fiyat", columnX.unitPrice, y + 8, { lineBreak: false });
+  doc.text("Tutar", columnX.amount, y + 8, { lineBreak: false });
+
+  let cursorY = y + 30;
+  items.forEach((item, index) => {
+    const fillColor = index % 2 === 0 ? COLORS.white : COLORS.panel;
+    const rowTop = cursorY;
+    const itemHeight = Math.max(
+      28,
+      doc.heightOfString(item.name, { width: columns.name - 18, align: "left" }) + 14
+    );
+
+    doc.rect(x, rowTop, width, itemHeight).fillAndStroke(fillColor, COLORS.border);
+    doc.font(BOLD_FONT).fontSize(9).fillColor(COLORS.brandDark).text(item.code, columnX.code, rowTop + 9, {
+      width: columns.code - 16
+    });
+    doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.text).text(item.name, columnX.name, rowTop + 9, {
+      width: columns.name - 18
+    });
+    doc.text(item.quantity, columnX.qty, rowTop + 9, { width: columns.qty - 8 });
+    doc.text(item.unitPrice, columnX.unitPrice, rowTop + 9, {
+      width: columns.unitPrice - 8,
+      align: "right"
+    });
+    doc.font(BOLD_FONT).text(item.amount, columnX.amount, rowTop + 9, {
+      width: columns.amount - 12,
+      align: "right"
+    });
+
+    cursorY += itemHeight + 6;
+  });
+
+  return cursorY;
+}
+
+function drawFooter(doc, quote) {
+  doc
+    .strokeColor(COLORS.border)
+    .lineWidth(1)
+    .moveTo(PAGE_MARGIN, PAGE_HEIGHT - 56)
+    .lineTo(PAGE_WIDTH - PAGE_MARGIN, PAGE_HEIGHT - 56)
+    .stroke();
+
+  doc.font(REGULAR_FONT).fontSize(8).fillColor(COLORS.muted);
+  doc.text(`${quote.customer.name} için hazırlandı`, PAGE_MARGIN, PAGE_HEIGHT - 44, { lineBreak: false });
+
+  const footerText = `Teklif ${quote.quoteCode}`;
+  doc.text(footerText, PAGE_WIDTH - PAGE_MARGIN - doc.widthOfString(footerText), PAGE_HEIGHT - 44, { lineBreak: false });
+}
+
+function buildPdfBuffer(quote) {
+  const doc = new PDFDocument({
+    size: "A4",
+    margins: {
+      top: PAGE_MARGIN,
+      bottom: PAGE_MARGIN,
+      left: PAGE_MARGIN,
+      right: PAGE_MARGIN
+    },
+    bufferPages: true,
+    autoFirstPage: true
+  });
+
+  doc.registerFont("tumex-regular", REGULAR_FONT);
+  doc.registerFont("tumex-bold", BOLD_FONT);
+
+  const chunks = [];
+  doc.on("data", (chunk) => chunks.push(chunk));
+
+  doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill(COLORS.white);
+
+  const headerHeight = 110;
+  const headerY = PAGE_MARGIN;
+  const metaWidth = 164;
+  const brandWidth = CONTENT_WIDTH - metaWidth - 18;
+
+  doc.rect(PAGE_MARGIN, headerY, brandWidth, headerHeight).fillAndStroke(COLORS.white, COLORS.border);
+  doc.rect(PAGE_MARGIN + brandWidth + 18, headerY, metaWidth, headerHeight).fill(COLORS.brandDark);
+  drawMetaCard(doc, PAGE_MARGIN + brandWidth + 28, headerY + 12, metaWidth - 20, quote);
+
+  drawTumexLogo(doc, PAGE_MARGIN + 16, headerY + 18);
+  doc.font(BOLD_FONT).fontSize(13).fillColor(COLORS.brandDark).text(COMPANY_NAME, PAGE_MARGIN + 110, headerY + 18, {
+    width: brandWidth - 126
+  });
+
+  let companyY = headerY + 42;
+  COMPANY_LINES.forEach((line) => {
+    doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.muted).text(line, PAGE_MARGIN + 110, companyY, {
+      width: brandWidth - 126
+    });
+    companyY += 15;
+  });
+
+  doc.font(BOLD_FONT).fontSize(24).fillColor(COLORS.brandDark).text("Makine Teklifi", PAGE_MARGIN, headerY + 136, {
+    lineBreak: false
+  });
+  doc.font(REGULAR_FONT).fontSize(10).fillColor(COLORS.muted).text(
+    `${quote.customer.name} için hazırlanmış ticari teklif özeti`,
+    PAGE_MARGIN,
+    headerY + 166,
+    { width: CONTENT_WIDTH }
   );
 
-  let y = TOP - 188;
-  const leftCardWidth = 254;
-  const rightCardX = LEFT + leftCardWidth + 20;
-  const rightCardWidth = RIGHT - rightCardX;
-
-  operations.push(makeFilledRect(LEFT, y - 118, leftCardWidth, 118, PANEL, BORDER));
-  operations.push(makeFilledRect(rightCardX, y - 118, rightCardWidth, 118, PANEL, BORDER));
-  operations.push(makeBoldText(LEFT + 14, y - 18, "Müşteri Bilgileri", 12, BRAND_DARK));
-  operations.push(makeBoldText(rightCardX + 14, y - 18, "Proje Bilgileri", 12, BRAND_DARK));
-
-  const customerLines = [
+  const cardY = headerY + 198;
+  const cardGap = 18;
+  const cardWidth = (CONTENT_WIDTH - cardGap) / 2;
+  drawInfoCard(doc, PAGE_MARGIN, cardY, cardWidth, "Müşteri Bilgileri", [
     quote.customer.name,
     quote.customer.attention ? `Dikkatine: ${quote.customer.attention}` : "",
     quote.customer.address,
     quote.customer.tel ? `Tel: ${quote.customer.tel}` : "",
     quote.customer.email ? `E-posta: ${quote.customer.email}` : "",
     quote.customer.taxOffice ? `Vergi Dairesi: ${quote.customer.taxOffice}` : ""
-  ].filter(Boolean);
+  ]);
 
-  let customerY = y - 38;
-  customerLines.forEach((line) => {
-    customerY = addWrappedText(operations, LEFT + 14, customerY, line, 10, leftCardWidth - 28, 13);
-  });
-
-  const projectLines = [
+  drawInfoCard(doc, PAGE_MARGIN + cardWidth + cardGap, cardY, cardWidth, "Proje Bilgileri", [
     `Malzeme: ${quote.materialNameSnapshot}`,
     `Kalınlık: ${formatNumber(quote.thicknessMm, " mm")}`,
     `Büküm Boyu: ${formatNumber(quote.bendLengthMm, " mm")}`,
     `Makine: ${quote.machineModelSnapshot}`,
     `Takım: ${quote.toolingNameSnapshot || "Standart"}`,
     `Opsiyon Sayısı: ${(quote.selectedOptions || []).length}`
+  ]);
+
+  const tableBottomY = drawTable(doc, PAGE_MARGIN, cardY + 140, CONTENT_WIDTH, buildItems(quote));
+
+  const notesY = tableBottomY + 12;
+  const totalsWidth = 168;
+  const notesWidth = CONTENT_WIDTH - totalsWidth - 16;
+
+  doc.rect(PAGE_MARGIN, notesY, notesWidth, 108).fillAndStroke(COLORS.white, COLORS.border);
+  doc.font(BOLD_FONT).fontSize(11).fillColor(COLORS.brandDark).text("Diğer Şartlar", PAGE_MARGIN + 12, notesY + 12);
+  doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.text).text(
+    quote.notes ||
+      "Standart ticari şartlar geçerlidir. Teslimat planlaması, kurulum kapsamı ve eğitim detayları sipariş aşamasında netleştirilebilir.",
+    PAGE_MARGIN + 12,
+    notesY + 34,
+    { width: notesWidth - 24, lineGap: 3 }
+  );
+
+  const totalsX = PAGE_MARGIN + notesWidth + 16;
+  doc.rect(totalsX, notesY, totalsWidth, 108).fillAndStroke(COLORS.panel, COLORS.border);
+  doc.font(BOLD_FONT).fontSize(11).fillColor(COLORS.brandDark).text("Toplam", totalsX + 12, notesY + 12);
+
+  const totalRows = [
+    ["Makine Fiyatı", formatCurrency(quote.machinePriceUsd)],
+    ["Opsiyon Toplamı", formatCurrency(quote.optionsTotalUsd)]
   ];
 
-  let projectY = y - 38;
-  projectLines.forEach((line) => {
-    projectY = addWrappedText(operations, rightCardX + 14, projectY, line, 10, rightCardWidth - 28, 13);
-  });
-
-  y -= 146;
-  const tableTop = y;
-  const columns = {
-    code: LEFT,
-    description: LEFT + 90,
-    qty: RIGHT - 172,
-    unitPrice: RIGHT - 112,
-    amount: RIGHT - 24
-  };
-
-  operations.push(makeBoldText(LEFT, tableTop + 12, "Teklif Kalemleri", 12, BRAND_DARK));
-  operations.push(makeFilledRect(LEFT, tableTop - 18, RIGHT - LEFT, 24, PANEL_ALT, BORDER));
-  operations.push(makeBoldText(columns.code + 8, tableTop - 2, "Model", 9, BRAND_DARK));
-  operations.push(makeBoldText(columns.description + 8, tableTop - 2, "Ürün Adı", 9, BRAND_DARK));
-  operations.push(makeBoldText(columns.qty + 2, tableTop - 2, "Miktar", 9, BRAND_DARK));
-  operations.push(makeBoldText(columns.unitPrice - 8, tableTop - 2, "Birim Fiyat", 9, BRAND_DARK));
-  operations.push(makeBoldText(columns.amount - 28, tableTop - 2, "Tutar", 9, BRAND_DARK));
-
-  y = tableTop - 34;
-  const items = buildItems(quote);
-  items.forEach((item, index) => {
-    const wrappedName = wrapText(item.name, 10, columns.qty - columns.description - 16);
-    const rowHeight = Math.max(24, wrappedName.length * 13 + 10);
-
-    if (index % 2 === 0) {
-      operations.push(makeFilledRect(LEFT, y - rowHeight + 6, RIGHT - LEFT, rowHeight, WHITE, BORDER));
-    } else {
-      operations.push(makeFilledRect(LEFT, y - rowHeight + 6, RIGHT - LEFT, rowHeight, PANEL, BORDER));
-    }
-
-    operations.push(makeBoldText(columns.code + 8, y - 10, item.code, 10, BRAND_DARK));
-    wrappedName.forEach((line, index) => {
-      operations.push(makeText(columns.description + 8, y - 10 - index * 13, line, 10));
+  let totalsY = notesY + 40;
+  totalRows.forEach(([label, value]) => {
+    doc.font(REGULAR_FONT).fontSize(8.5).fillColor(COLORS.muted).text(label, totalsX + 12, totalsY);
+    doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.text).text(value, totalsX + 12, totalsY, {
+      width: totalsWidth - 24,
+      align: "right"
     });
-    operations.push(makeText(columns.qty + 6, y - 10, item.quantity, 10));
-    operations.push(makeRightText(columns.unitPrice + 44, y - 10, item.unitPrice, 10));
-    operations.push(makeRightText(columns.amount + 12, y - 10, item.amount, 10, INK, true));
-    y -= rowHeight;
+    totalsY += 18;
   });
 
-  y -= 18;
-  const notesWidth = RIGHT - LEFT - 186;
-  operations.push(makeFilledRect(LEFT, y - 112, notesWidth, 112, WHITE, BORDER));
-  operations.push(makeFilledRect(LEFT + notesWidth + 16, y - 112, 170, 112, PANEL_ALT, BORDER));
-  operations.push(makeBoldText(LEFT + 12, y - 18, "Diğer Şartlar", 12, BRAND_DARK));
-  addWrappedText(
-    operations,
-    LEFT + 12,
-    y - 38,
-    quote.notes || "Standart ticari şartlar geçerlidir. Teslimat planlaması, kurulum kapsamı ve eğitim detayları sipariş aşamasında netleştirilebilir.",
-    10,
-    notesWidth - 24,
-    13
-  );
-  operations.push(makeBoldText(LEFT + notesWidth + 28, y - 18, "Toplam", 12, BRAND_DARK));
-  operations.push(makeText(LEFT + notesWidth + 28, y - 40, "Makine Fiyatı", 9, MUTED));
-  operations.push(makeRightText(RIGHT - 12, y - 40, formatCurrency(quote.machinePriceUsd), 10));
-  operations.push(makeText(LEFT + notesWidth + 28, y - 58, "Opsiyon Toplamı", 9, MUTED));
-  operations.push(makeRightText(RIGHT - 12, y - 58, formatCurrency(quote.optionsTotalUsd), 10));
-  operations.push(makeLine(LEFT + notesWidth + 28, y - 68, RIGHT - 12, y - 68, 0.8));
-  operations.push(makeText(LEFT + notesWidth + 28, y - 86, "Genel Toplam", 10, BRAND_DARK));
-  operations.push(makeRightText(RIGHT - 12, y - 86, formatCurrency(quote.grandTotalUsd), 14, BRAND_DARK, true));
-  y -= 128;
+  doc
+    .strokeColor(COLORS.border)
+    .lineWidth(1)
+    .moveTo(totalsX + 12, totalsY + 2)
+    .lineTo(totalsX + totalsWidth - 12, totalsY + 2)
+    .stroke();
 
-  operations.push(makeFilledRect(LEFT, y - 54, RIGHT - LEFT, 54, PANEL, BORDER));
-  operations.push(makeBoldText(LEFT + 12, y - 20, "Yazıyla Tutar", 11, BRAND_DARK));
-  addWrappedText(operations, LEFT + 128, y - 20, amountToWords(quote.grandTotalUsd), 10, RIGHT - LEFT - 140, 13);
-  y -= 72;
-
-  operations.push(makeLine(LEFT, 60, RIGHT, 60, 0.8));
-  operations.push(makeText(LEFT, 42, `${quote.customer.name} için hazırlandı`, 9, MUTED));
-  operations.push(makeRightText(RIGHT, 42, `Teklif ${quote.quoteCode}`, 9, MUTED));
-
-  return operations.join("\n");
-}
-
-function buildPdfBuffer(content) {
-  const objects = [];
-
-  const addObject = (body) => {
-    objects.push(body);
-    return objects.length;
-  };
-
-  const contentLength = Buffer.byteLength(content, "utf8");
-  const contentObjectId = addObject(`<< /Length ${contentLength} >>\nstream\n${content}\nendstream`);
-  const fontObjectId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-  const boldFontObjectId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
-  const pagesObjectId = objects.length + 2;
-  const pageObjectId = addObject(
-    `<< /Type /Page /Parent ${pagesObjectId} 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /Font << /F1 ${fontObjectId} 0 R /F2 ${boldFontObjectId} 0 R >> >> /Contents ${contentObjectId} 0 R >>`
-  );
-  const actualPagesObjectId = addObject(`<< /Type /Pages /Kids [${pageObjectId} 0 R] /Count 1 >>`);
-  const catalogObjectId = addObject(`<< /Type /Catalog /Pages ${actualPagesObjectId} 0 R >>`);
-
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-
-  objects.forEach((body, index) => {
-    offsets.push(Buffer.byteLength(pdf, "utf8"));
-    pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+  doc.font(BOLD_FONT).fontSize(10).fillColor(COLORS.brandDark).text("Genel Toplam", totalsX + 12, totalsY + 12);
+  doc.font(BOLD_FONT).fontSize(13).fillColor(COLORS.brandDark).text(formatCurrency(quote.grandTotalUsd), totalsX + 12, totalsY + 10, {
+    width: totalsWidth - 24,
+    align: "right"
   });
 
-  const xrefStart = Buffer.byteLength(pdf, "utf8");
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += "0000000000 65535 f \n";
-  for (let index = 1; index < offsets.length; index += 1) {
-    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
-  }
+  const wordsY = notesY + 126;
+  doc.rect(PAGE_MARGIN, wordsY, CONTENT_WIDTH, 56).fillAndStroke(COLORS.panelAlt, COLORS.border);
+  doc.font(BOLD_FONT).fontSize(10.5).fillColor(COLORS.brandDark).text("Yazıyla Tutar", PAGE_MARGIN + 12, wordsY + 18);
+  doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.text).text(amountToWords(quote.grandTotalUsd), PAGE_MARGIN + 130, wordsY + 18, {
+    width: CONTENT_WIDTH - 142
+  });
 
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogObjectId} 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
-  return Buffer.from(pdf, "utf8");
+  drawFooter(doc, quote);
+  doc.end();
+
+  return new Promise((resolve, reject) => {
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
 }
 
 export async function generateQuotePdf(id, user) {
   const quote = await getQuoteById(id, user);
-  const content = buildPdfContent(quote);
+  const buffer = await buildPdfBuffer(quote);
 
   return {
     quote,
-    buffer: buildPdfBuffer(content)
+    buffer
   };
 }
