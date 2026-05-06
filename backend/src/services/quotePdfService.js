@@ -20,13 +20,15 @@ const COLORS = {
 
 const COMPANY_NAME = "Tumex Mümessillik ve Dış Ticaret Ltd. Şti.";
 const COMPANY_LINES = [
-  "Birlik Mah. 408. Sok. No:9/2 Evkur Birlik Apt.",
-  "Çankaya / Ankara",
+  "İvedik OSB Melih Gökçek Blv.",
+  "63/33 Yenimahalle",
+  "Ankara / Türkiye",
   "info@tum-ex.com  |  +90 530 712 4897"
 ];
 
 const REGULAR_FONT = fileURLToPath(new URL("../../assets/fonts/Verdana.ttf", import.meta.url));
 const BOLD_FONT = fileURLToPath(new URL("../../assets/fonts/Verdana-Bold.ttf", import.meta.url));
+const LOGO_PATH = fileURLToPath(new URL("../../assets/tumex-logo.png", import.meta.url));
 
 function sanitizeText(value) {
   return String(value ?? "")
@@ -164,35 +166,11 @@ function amountToWords(value) {
 }
 
 function drawTumexLogo(doc, x, y) {
-  doc
-    .save()
-    .lineWidth(5)
-    .strokeColor(COLORS.brand)
-    .polygon(
-      [x, y + 18],
-      [x + 38, y],
-      [x + 76, y + 18],
-      [x + 38, y + 36]
-    )
-    .stroke();
-
-  doc
-    .lineWidth(2.5)
-    .polygon(
-      [x + 17, y + 18],
-      [x + 38, y + 8],
-      [x + 59, y + 18],
-      [x + 38, y + 28]
-    )
-    .stroke();
-
-  doc
-    .font(BOLD_FONT)
-    .fontSize(16)
-    .fillColor(COLORS.brand)
-    .text("tumex", x + 13, y + 9, { lineBreak: false });
-
-  doc.restore();
+  doc.image(LOGO_PATH, x, y, {
+    fit: [138, 60],
+    align: "left",
+    valign: "center"
+  });
 }
 
 function drawInfoCard(doc, x, y, width, title, lines) {
@@ -352,15 +330,15 @@ function buildPdfBuffer(quote) {
   doc.rect(PAGE_MARGIN + brandWidth + 18, headerY, metaWidth, headerHeight).fill(COLORS.brandDark);
   drawMetaCard(doc, PAGE_MARGIN + brandWidth + 28, headerY + 12, metaWidth - 20, quote);
 
-  drawTumexLogo(doc, PAGE_MARGIN + 16, headerY + 18);
-  doc.font(BOLD_FONT).fontSize(13).fillColor(COLORS.brandDark).text(COMPANY_NAME, PAGE_MARGIN + 110, headerY + 18, {
-    width: brandWidth - 126
+  drawTumexLogo(doc, PAGE_MARGIN + 12, headerY + 22);
+  doc.font(BOLD_FONT).fontSize(13).fillColor(COLORS.brandDark).text(COMPANY_NAME, PAGE_MARGIN + 164, headerY + 18, {
+    width: brandWidth - 180
   });
 
   let companyY = headerY + 42;
   COMPANY_LINES.forEach((line) => {
-    doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.muted).text(line, PAGE_MARGIN + 110, companyY, {
-      width: brandWidth - 126
+    doc.font(REGULAR_FONT).fontSize(9).fillColor(COLORS.muted).text(line, PAGE_MARGIN + 164, companyY, {
+      width: brandWidth - 180
     });
     companyY += 15;
   });
