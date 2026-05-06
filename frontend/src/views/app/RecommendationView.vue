@@ -39,7 +39,12 @@
             <textarea v-model="form.notes" rows="4" :disabled="loading || saving" />
           </label>
 
-          <button class="button-primary" :disabled="loading || fetchingMaterials">
+          <button
+            class="button-primary"
+            :disabled="loading || fetchingMaterials"
+            aria-label="Öneri getir"
+            title="Öneri getir"
+          >
             <IconGlyph name="refresh" />
             {{ loading ? "Hesaplanıyor..." : "Öneri Getir" }}
           </button>
@@ -180,7 +185,13 @@
           <p class="eyebrow">Adım 3</p>
           <h3 class="section-title">Teklif Özeti</h3>
         </div>
-        <button class="button-primary" :disabled="saving || loading || fetchingMaterials" @click="saveQuote">
+        <button
+          class="button-primary"
+          :disabled="saving || loading || fetchingMaterials"
+          @click="saveQuote"
+          aria-label="Teklifi kaydet"
+          title="Teklifi kaydet"
+        >
           <IconGlyph name="save" />
           {{ saving ? "Kaydediliyor..." : "Teklifi Kaydet" }}
         </button>

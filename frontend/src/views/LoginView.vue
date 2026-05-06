@@ -17,7 +17,7 @@
           <input v-model="password" type="password" placeholder="Şifre" :disabled="auth.loading" />
         </label>
         <p v-if="auth.error" class="message-error">{{ auth.error }}</p>
-        <button class="button-primary" :disabled="auth.loading">
+        <button class="button-primary" :disabled="auth.loading" aria-label="Giriş yap" title="Giriş yap">
           <IconGlyph name="login" />
           Giriş Yap
         </button>
