@@ -1,46 +1,63 @@
-# Sales Press Brake Kullanım Kılavuzu
+# ABKANT SATIŞ PROGRAMI KULLANIM KILAVUZU
 
-Bu belge, `Sales Press Brake` uygulamasının günlük kullanımını anlatır.
+## İÇİNDEKİLER
 
-Kapsam:
-- giriş yapma
-- yönetim ekranlarının kullanımı
-- öneri oluşturma
-- teklif kaydetme, düzenleme, görüntüleme ve PDF alma
-- yerel kurulum ve çalıştırma
+## 1. Genel Bakış
 
-## 1. Sistem Özeti
+Bu kılavuz, `Sales Press Brake` uygulamasının günlük kullanımını anlatır.
 
-Uygulama iki ana bölümden oluşur:
+Uygulama iki ana kullanım alanına sahiptir:
 
-- `frontend/`
-  Vue 3 + Vite tabanlı kullanıcı arayüzü
-- `backend/`
-  Express + PostgreSQL tabanlı API
+- `Yönetim Bölümü`
+- `Teklif / Öneri Bölümü`
 
 Sistemde iki temel kullanıcı tipi vardır:
 
-- `admin`
-  Yönetim ekranlarına erişir, kullanıcıları ve katalog verilerini yönetir, tüm teklifleri görebilir
-- `user`
-  Öneri oluşturur, kendi tekliflerini görür, kaydeder ve düzenler
+- `Yönetici`
+- `Kullanıcı`
 
-## 2. Giriş
+### 1.1 Yönetici
 
-Giriş ekranında kullanıcı adı ve şifre ile oturum açılır.
+Yönetici kullanıcılar şunları yapabilir:
 
-Giriş sonrası yönlendirme:
+- kullanıcıları yönetebilir
+- malzemeleri yönetebilir
+- makineleri yönetebilir
+- takımları yönetebilir
+- opsiyonları yönetebilir
+- tüm teklifleri görüntüleyebilir
+- teklif silebilir
 
-- `admin` kullanıcıları: `/admin/users`
-- normal kullanıcılar: `/app/recommendation`
+### 1.2 Kullanıcı
+
+Normal kullanıcılar şunları yapabilir:
+
+- öneri oluşturabilir
+- teklif oluşturabilir
+- kendi tekliflerini görüntüleyebilir
+- kendi tekliflerini düzenleyebilir
+- kendi tekliflerinin PDF çıktısını alabilir
+
+## 2. Sisteme Giriş
+
+Giriş ekranında:
+
+- kullanıcı adı girilir
+- şifre girilir
+- oturum açılır
+
+Girişten sonra:
+
+- yönetici kullanıcılar yönetim ekranına yönlendirilir
+- normal kullanıcılar öneri ekranına yönlendirilir
 
 Çıkış yapmak için sol menüdeki çıkış düğmesi kullanılır.
 
 ## 3. Yönetim Bölümü
 
-Yönetim bölümü sadece `admin` kullanıcılar içindir.
+Bu bölüm yalnızca yönetici kullanıcılar içindir.
 
-Ekranlar:
+Yönetim ekranları:
 
 - `Kullanıcılar`
 - `Malzemeler`
@@ -48,41 +65,47 @@ Ekranlar:
 - `Takımlar`
 - `Opsiyonlar`
 
-Her yönetim ekranında ortak kullanım mantığı vardır:
+Her ekranda genel yapı aynıdır:
 
-- solda oluşturma / düzenleme formu
-- sağda mevcut kayıtlar listesi
-- `kaydet`, `yenile`, `düzenle`, `sil` işlemleri
+- solda kayıt oluşturma veya düzenleme formu bulunur
+- sağda mevcut kayıtların listesi bulunur
+
+Ortak işlemler:
+
+- yeni kayıt oluşturma
+- mevcut kaydı düzenleme
+- kayıtları yenileme
+- kayıt silme
 
 ### 3.1 Kullanıcılar
 
-Bu ekrandan:
+Bu ekranda:
 
 - yeni kullanıcı oluşturulur
-- kullanıcı rolü `user` veya `admin` olarak belirlenir
-- yorum alanı girilir
-- mevcut kullanıcı düzenlenir
-
-Not:
-- kullanıcı listesi sadece admin tarafından görüntülenebilir
+- kullanıcı rolü belirlenir
+- kullanıcı yorumları girilir
+- mevcut kullanıcılar güncellenir
 
 ### 3.2 Malzemeler
 
-Bu ekranda malzeme teknik verileri tanımlanır:
+Bu ekranda büküm hesaplamalarında kullanılacak malzeme verileri tanımlanır.
 
-- ad
+Girilen başlıca bilgiler:
+
+- malzeme adı
 - çekme dayanımı
 - akma dayanımı
-- `K` faktörü
+- K faktörü
 - Young modülü
-- önerilen `V-die` faktörü
-- minimum ve maksimum kalınlık
-
-Bu veriler öneri motoru tarafından kullanılır.
+- önerilen V-kalıp faktörü
+- minimum kalınlık
+- maksimum kalınlık
 
 ### 3.3 Makineler
 
-Bu ekranda makine katalog verileri tanımlanır:
+Bu ekranda makine katalog bilgileri tanımlanır.
+
+Girilen başlıca bilgiler:
 
 - model
 - maksimum tonaj
@@ -90,51 +113,56 @@ Bu ekranda makine katalog verileri tanımlanır:
 - maksimum kalınlık
 - baz fiyat
 
-Önerilen makineler, burada tanımlanan katalogdan seçilir.
-
 ### 3.4 Takımlar
 
-Bu ekranda takım verileri tanımlanır:
+Bu ekranda takım bilgileri tanımlanır.
+
+Girilen başlıca bilgiler:
 
 - takım adı
-- `V-die`
+- V-kalıp değeri
 - punç yarıçapı
 - kalıp yarıçapı
 
 ### 3.5 Opsiyonlar
 
-Bu ekranda teklif opsiyonları tanımlanır:
+Bu ekranda teklifte kullanılacak ek opsiyonlar tanımlanır.
 
-- kod
-- ad
+Girilen başlıca bilgiler:
+
+- opsiyon kodu
+- opsiyon adı
 - fiyat
-
-Seçilen opsiyonlar teklif toplamına eklenir.
 
 ## 4. Öneri Ekranı
 
-Normal kullanıcıların temel çalışma ekranıdır: `/app/recommendation`
+Öneri ekranı, teklif oluşturma sürecinin ana ekranıdır.
 
-Bu ekran üç bölümden oluşur:
+Bu ekran üç adımdan oluşur:
+
+- `Adım 1: Girdiler`
+- `Adım 2: Müşteri Bilgileri`
+- `Adım 3: Teklif Özeti`
 
 ### 4.1 Adım 1: Girdiler
 
-Girilen alanlar:
+Bu bölümde şu bilgiler girilir:
 
-- `Malzeme`
-- `Kalınlık mm`
-- `Büküm Boyu mm`
-- `Notlar`
+- malzeme
+- kalınlık
+- büküm boyu
+- notlar
+- diğer şartlar
 
-`Öneri Getir` düğmesi basıldığında sistem:
+`Öneri Getir` düğmesine basıldığında sistem:
 
 - uygun makineleri listeler
 - uygun takımları listeler
-- kullanılabilir opsiyonları getirir
+- mevcut opsiyonları getirir
 
 ### 4.2 Adım 2: Müşteri Bilgileri
 
-Bu alanda teklif müşterisi girilir:
+Bu bölümde müşteri bilgileri girilir:
 
 - firma
 - yetkili
@@ -143,16 +171,18 @@ Bu alanda teklif müşterisi girilir:
 - e-posta
 - vergi dairesi
 
-Not:
-- teklif kaydı için en az şu alanlar zorunludur:
-  - firma
-  - adres
-  - telefon
-  - vergi dairesi
+Teklif kaydı için zorunlu alanlar:
+
+- firma adı
+- adres
+- telefon
+- vergi dairesi
 
 ### 4.3 Adım 3: Teklif Özeti
 
-Bu bölümde seçilen veriler özetlenir:
+Bu bölümde seçilen teklifin özeti gösterilir.
+
+Gösterilen bilgiler:
 
 - malzeme
 - takım
@@ -161,23 +191,25 @@ Bu bölümde seçilen veriler özetlenir:
 - müşteri bilgileri hazır mı
 - teklif hazır mı
 
-`Teklifi Kaydet` ile teklif oluşturulur.
+Bu bölümden `Teklifi Kaydet` işlemi yapılır.
 
-## 5. Teklif Oluşturma Akışı
+## 5. Teklif Oluşturma
 
-Tipik kullanım sırası:
+Tipik kullanım sırası aşağıdaki gibidir:
 
 1. Malzeme seçin.
-2. Kalınlık ve büküm boyunu girin.
-3. `Öneri Getir` düğmesine basın.
-4. Uygun makineyi seçin.
-5. Uygun takımı seçin.
-6. Gerekliyse opsiyonları seçin.
-7. Müşteri bilgilerini doldurun.
-8. Not girilecekse ekleyin.
-9. `Teklifi Kaydet` düğmesine basın.
+2. Kalınlık bilgisini girin.
+3. Büküm boyunu girin.
+4. Gerekirse not ekleyin.
+5. Gerekirse `Diğer Şartlar` alanını doldurun.
+6. `Öneri Getir` düğmesine basın.
+7. Önerilen makinelerden uygun olanı seçin.
+8. Önerilen takımlardan uygun olanı seçin.
+9. Gerekli opsiyonları işaretleyin.
+10. Müşteri bilgilerini doldurun.
+11. `Teklifi Kaydet` düğmesine basın.
 
-Başarılı kayıt sonrası sistem teklif kodu üretir.
+Başarılı kayıt sonrası sistem bir teklif kodu üretir.
 
 Örnek:
 
@@ -185,34 +217,25 @@ Başarılı kayıt sonrası sistem teklif kodu üretir.
 
 ## 6. Teklifler Ekranı
 
-Ekran yolu:
+Bu ekran, kaydedilmiş teklifleri yönetmek için kullanılır.
 
-- `/app/quotes`
+Kullanıcı bu ekranda:
 
-Bu ekranda kullanıcı:
+- teklif listesini görebilir
+- teklif detayını açabilir
+- teklifi düzenleyebilir
+- PDF çıktısı alabilir
 
-- kayıtlı teklifleri listeler
-- teklif detayını görüntüler
-- PDF indirir
-- teklifi düzenler
-
-Admin kullanıcılar ayrıca:
-
-- teklif silebilir
-- tüm teklifleri görebilir
-
-Normal kullanıcılar:
-
-- yalnızca kendi tekliflerini görür
+Yönetici kullanıcı ayrıca teklif silebilir.
 
 ### 6.1 Teklif Görüntüleme
 
-Liste ekranında görüntüleme düğmesi ile teklif detayları sağ panelde açılır.
+Teklif listesindeki görüntüleme düğmesi ile teklif detayları açılır.
 
-Gösterilen bilgiler:
+Detay bölümünde görülebilen bilgiler:
 
 - teklif kodu
-- müşteri
+- müşteri adı
 - malzeme
 - kalınlık
 - büküm boyu
@@ -221,205 +244,59 @@ Gösterilen bilgiler:
 - makine fiyatı
 - opsiyon toplamı
 - notlar
+- diğer şartlar
 - seçilen opsiyonlar
 
 ### 6.2 Teklif Düzenleme
 
-Liste ekranındaki düzenleme düğmesi ile teklif, öneri ekranında açılır.
+Teklif listesindeki düzenleme düğmesi ile seçilen teklif düzenleme ekranında açılır.
 
 Sistem otomatik olarak:
 
-- müşteri bilgilerini doldurur
-- malzeme verisini yükler
-- teklif notlarını doldurur
-- kayıtlı makine / takım / opsiyon seçimini geri getirir
+- müşteri bilgilerini getirir
+- malzeme seçimini getirir
+- notları getirir
+- diğer şartları getirir
+- seçilmiş makineyi getirir
+- seçilmiş takımı getirir
+- seçilmiş opsiyonları getirir
 
-Değişiklikten sonra tekrar kaydedildiğinde:
+Düzenleme yapıldıktan sonra tekrar kaydedildiğinde:
 
 - yeni teklif oluşturulmaz
 - mevcut teklif güncellenir
 
 ### 6.3 PDF Alma
 
-PDF düğmesi ile teklifin PDF çıktısı alınır.
+Teklif listesindeki PDF düğmesi ile teklifin PDF çıktısı indirilir.
 
-PDF içinde:
+PDF içinde yer alan temel bölümler:
 
 - firma üst bilgisi
 - teklif bilgileri
-- `DİKKATİNE` alanı
+- müşteri alanı
 - teklif kalemleri
 - genel toplam
 - yazıyla tutar
 - diğer şartlar
 
-## 7. Yetki Kuralları
+## 7. Günlük Kullanım Önerisi
 
-### Admin kullanıcı
+Uygulamayı verimli kullanmak için önerilen sıra:
 
-Şunları yapabilir:
+1. Yönetici olarak katalog verilerinin doğru girildiğinden emin olun.
+2. Teklif hazırlayacak kullanıcı sisteme giriş yapsın.
+3. Öneri ekranından teklif hazırlansın.
+4. Teklif kaydedilsin.
+5. Teklifler ekranından kontrol edilsin.
+6. Gerekirse düzenleme yapılsın.
+7. Son haliyle PDF çıktısı alınsın.
 
-- kullanıcı yönetimi
-- malzeme yönetimi
-- makine yönetimi
-- takım yönetimi
-- opsiyon yönetimi
-- tüm teklifleri görme
-- teklif silme
+## 8. Dikkat Edilmesi Gerekenler
 
-### Normal kullanıcı
-
-Şunları yapabilir:
-
-- öneri oluşturma
-- teklif oluşturma
-- kendi tekliflerini görüntüleme
-- kendi tekliflerini düzenleme
-- kendi teklifleri için PDF alma
-
-Yapamaz:
-
-- kullanıcı listesi görme
-- admin katalog ekranlarına erişme
-- teklif silme
-
-## 8. Yerel Kurulum
-
-## 8.1 Gereksinimler
-
-- Node.js `20+`
-- PostgreSQL veritabanı
-
-## 8.2 Backend ortam değişkenleri
-
-`backend/.env` içinde en az şu alanlar olmalıdır:
-
-```env
-DATABASE_URL=postgresql://kullanici:sifre@host:5432/veritabani
-JWT_SECRET=guclu-bir-gizli-anahtar
-PORT=5000
-CORS_ORIGIN=http://localhost:5173
-```
-
-## 8.3 Frontend ortam değişkenleri
-
-`frontend/.env` içinde:
-
-```env
-VITE_API_BASE_URL=http://localhost:5000/api
-```
-
-## 8.4 Backend başlatma
-
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-veya
-
-```bash
-cd backend
-npm install
-npm start
-```
-
-Backend açılırken:
-
-- quote şeması otomatik kontrol edilir
-- gerekli quote kolonları oluşturulur
-
-## 8.5 Frontend başlatma
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## 9. Yardımcı Komutlar
-
-Backend klasöründe:
-
-```bash
-npm run patch:quotes
-```
-
-Amaç:
-- quote tablosunu güncellemek
-
-```bash
-npm run backfill:quote-owners -- <username>
-```
-
-Amaç:
-- sahibi olmayan eski teklifleri bir kullanıcıya bağlamak
-
-Örnek:
-
-```bash
-npm run backfill:quote-owners -- operator
-```
-
-## 10. Sık Karşılaşılan Durumlar
-
-### 10.1 Teklif kaydı sırasında UUID hatası
-
-Örnek hata:
-
-- `invalid input syntax for type uuid`
-
-Anlamı:
-- eski verilerde sayısal id kalmış olabilir
-
-Durum:
-- sistem bu konu için sertleştirildi
-- yine de backend yeniden başlatılmalıdır
-
-### 10.2 Eski teklifler kullanıcıda görünmüyor
-
-Sebep:
-- eski kayıtlarda `owner_user_id` olmayabilir
-
-Çözüm:
-- backfill komutu ile ilgili kullanıcıya bağlanmalıdır
-
-### 10.3 PDF görünümü beklenen gibi değil
-
-Kontrol edilmesi gerekenler:
-
-- müşteri bilgileri eksik mi
-- adres tek satır mı girildi
-- backend yeniden başlatıldı mı
-- en son PDF düzenleri deploy edildi mi
-
-## 11. Önerilen Kullanım Disiplini
-
-- önce katalog verilerini admin olarak düzgün girin
-- sonra öneri ekranında gerçek teklifler oluşturun
-- müşteri bilgilerini eksiksiz girin
-- teklif kaydetmeden önce makine ve takım seçimini kontrol edin
-- PDF’yi indirmeden önce teklif detayını teklif listesinde açıp gözden geçirin
-
-## 12. Dosya Referansları
-
-Ana kullanım ekranları:
-
-- [frontend/src/views/app/RecommendationView.vue](/Users/alitumay/Desktop/Sales_PressBrake/frontend/src/views/app/RecommendationView.vue)
-- [frontend/src/views/app/QuotesView.vue](/Users/alitumay/Desktop/Sales_PressBrake/frontend/src/views/app/QuotesView.vue)
-
-Yönetim ekranları:
-
-- [frontend/src/views/admin/AdminUsersView.vue](/Users/alitumay/Desktop/Sales_PressBrake/frontend/src/views/admin/AdminUsersView.vue)
-- [frontend/src/views/admin/AdminMaterialsView.vue](/Users/alitumay/Desktop/Sales_PressBrake/frontend/src/views/admin/AdminMaterialsView.vue)
-- [frontend/src/views/admin/AdminMachinesView.vue](/Users/alitumay/Desktop/Sales_PressBrake/frontend/src/views/admin/AdminMachinesView.vue)
-- [frontend/src/views/admin/AdminToolingView.vue](/Users/alitumay/Desktop/Sales_PressBrake/frontend/src/views/admin/AdminToolingView.vue)
-- [frontend/src/views/admin/AdminOptionsView.vue](/Users/alitumay/Desktop/Sales_PressBrake/frontend/src/views/admin/AdminOptionsView.vue)
-
-Backend ana bileşenleri:
-
-- [backend/src/app.js](/Users/alitumay/Desktop/Sales_PressBrake/backend/src/app.js)
-- [backend/src/services/quoteService.js](/Users/alitumay/Desktop/Sales_PressBrake/backend/src/services/quoteService.js)
-- [backend/src/services/quotePdfService.js](/Users/alitumay/Desktop/Sales_PressBrake/backend/src/services/quotePdfService.js)
-- [backend/src/db/ensureQuotesSchema.js](/Users/alitumay/Desktop/Sales_PressBrake/backend/src/db/ensureQuotesSchema.js)
+- Müşteri bilgileri eksikse teklif kaydı tamamlanamaz.
+- Makine seçilmeden teklif kaydedilmemelidir.
+- Takım seçimi yapılması önerilir.
+- PDF almadan önce teklif detayları kontrol edilmelidir.
+- Kullanıcılar yalnızca kendi tekliflerini görebilir.
+- Teklif silme işlemi yalnızca yönetici tarafından yapılabilir.

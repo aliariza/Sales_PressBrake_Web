@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kullanım Kılavuzu</title>
+    <link rel="icon" type="image/png" href="/tumex-logo.png" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #eef4fb;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        font-family: Arial, sans-serif;
+        color: #173f7a;
+      }
+
+      .viewer-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid #d6deef;
+        background: #ffffff;
+      }
+
+      .viewer-header img {
+        height: 28px;
+        width: auto;
+      }
+
+      .viewer-header h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .viewer-frame {
+        flex: 1;
+        width: 100%;
+        border: 0;
+        background: #ffffff;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="viewer-header">
+      <img src="/tumex-logo.png" alt="Tumex" />
+      <h1>Kullanım Kılavuzu</h1>
+    </header>
+    <iframe class="viewer-frame" src="/KULLANIM_KILAVUZU.pdf" title="Kullanım Kılavuzu"></iframe>
+  </body>
+</html>

@@ -329,6 +329,7 @@ async function buildQuoteData(payload, user, existingQuote = null) {
     optionsTotalUsd: options.optionsTotalUsd,
     grandTotalUsd: machinePriceUsd + options.optionsTotalUsd,
     notes: payload.notes?.trim() || "",
+    otherTerms: payload.otherTerms?.trim() || "",
     createdAtLegacy: payload.createdAtLegacy?.trim() || existingQuote?.createdAtLegacy || new Date().toISOString()
   };
 }

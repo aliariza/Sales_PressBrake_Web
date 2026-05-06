@@ -39,6 +39,11 @@
             <textarea v-model="form.notes" rows="4" :disabled="loading || saving" />
           </label>
 
+          <label>
+            Diğer Şartlar
+            <textarea v-model="form.otherTerms" rows="5" :disabled="loading || saving" />
+          </label>
+
           <button
             class="button-primary"
             :disabled="loading || fetchingMaterials"
@@ -269,7 +274,8 @@ const form = reactive({
   materialNameSnapshot: "",
   thicknessMm: "",
   bendLengthMm: "",
-  notes: ""
+  notes: "",
+  otherTerms: ""
 });
 
 const customer = reactive({
@@ -330,6 +336,7 @@ function applyQuoteToForm(quote) {
   form.thicknessMm = quote.thicknessMm || "";
   form.bendLengthMm = quote.bendLengthMm || "";
   form.notes = quote.notes || "";
+  form.otherTerms = quote.otherTerms || "";
 
   customer.name = quote.customer?.name || "";
   customer.attention = quote.customer?.attention || "";
@@ -503,7 +510,8 @@ async function saveQuote() {
         name: option.name,
         priceUsd: option.priceUsd
       })),
-      notes: form.notes
+      notes: form.notes,
+      otherTerms: form.otherTerms
     };
 
     const { data } = isEditing.value

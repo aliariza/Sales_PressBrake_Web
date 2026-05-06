@@ -18,6 +18,15 @@
         <p v-if="auth.user" class="shell-subtitle">{{ auth.user.username }} olarak giriş yapıldı</p>
         <router-link class="nav-link" to="/app/recommendation">Öneri</router-link>
         <router-link class="nav-link" to="/app/quotes">Teklifler</router-link>
+        <a
+          class="nav-link"
+          :href="manualUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Kullanım kılavuzunu yeni sekmede aç"
+        >
+          Kullanım Kılavuzu
+        </a>
         <router-link v-if="auth.user?.role === 'admin'" class="nav-link" to="/admin/users">Yönetim</router-link>
       </aside>
 
@@ -36,6 +45,7 @@ import { useAuthStore } from "../../stores/auth";
 
 const auth = useAuthStore();
 const router = useRouter();
+const manualUrl = "/kullanim-kilavuzu.html";
 
 function logout() {
   auth.logout();

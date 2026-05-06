@@ -147,6 +147,13 @@
           </section>
 
           <section class="quote-detail-section">
+            <h4 class="section-title quote-subsection-title">Diğer Şartlar</h4>
+            <div class="quote-note">
+              {{ selectedQuote.otherTerms || "Diğer şart girilmedi." }}
+            </div>
+          </section>
+
+          <section class="quote-detail-section">
             <h4 class="section-title quote-subsection-title">Seçilen Opsiyonlar</h4>
 
             <div v-if="selectedQuote.selectedOptions.length" class="quote-option-list">

@@ -92,6 +92,29 @@ function buildCustomerCode(name) {
   return `${firstWord || "musteri"}-01`;
 }
 
+function keepColonValueTogether(firstLine, secondLine) {
+  if (!firstLine || !secondLine) {
+    return [firstLine, secondLine];
+  }
+
+  const normalizedFirstLine = firstLine.trim();
+  const normalizedSecondLine = secondLine.trim();
+
+  if (!/:$/.test(normalizedFirstLine) && !/\b[^ ]*:\s*$/.test(normalizedFirstLine)) {
+    return [normalizedFirstLine, normalizedSecondLine];
+  }
+
+  const [nextToken, ...restTokens] = normalizedSecondLine.split(/\s+/);
+  if (!nextToken) {
+    return [normalizedFirstLine, normalizedSecondLine];
+  }
+
+  return [
+    `${normalizedFirstLine}${nextToken}`,
+    restTokens.join(" ").trim()
+  ];
+}
+
 function splitAddressIntoTwoLines(address) {
   const cleaned = sanitizeText(address);
 
@@ -114,19 +137,19 @@ function splitAddressIntoTwoLines(address) {
     const index = cleaned.indexOf(hint);
     if (index > 12) {
       const splitIndex = index + hint.length;
-      return [
+      return keepColonValueTogether(
         cleaned.slice(0, splitIndex).trim(),
         cleaned.slice(splitIndex).trim()
-      ];
+      );
     }
   }
 
   const words = cleaned.split(/\s+/);
   const midpoint = Math.ceil(words.length / 2);
-  return [
+  return keepColonValueTogether(
     words.slice(0, midpoint).join(" "),
     words.slice(midpoint).join(" ")
-  ];
+  );
 }
 
 function addDays(value, days) {
@@ -245,55 +268,155 @@ function drawTumexLogo(doc, x, y) {
   });
 }
 
+function tokenizeForWrapping(text) {
+  const tokens = sanitizeText(text).split(/\s+/).filter(Boolean);
+  const mergedTokens = [];
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const current = tokens[index];
+    const next = tokens[index + 1];
+
+    if (current?.endsWith(":") && next) {
+      mergedTokens.push(`${current}\u00A0${next}`);
+      index += 1;
+      continue;
+    }
+
+    mergedTokens.push(current);
+  }
+
+  return mergedTokens;
+}
+
+function wrapTextToRows(doc, text, maxWidth, fontSize) {
+  const tokens = tokenizeForWrapping(text);
+  const rows = [];
+
+  doc.font(REGULAR_FONT).fontSize(fontSize);
+
+  let currentRow = "";
+  tokens.forEach((token) => {
+    const candidate = currentRow ? `${currentRow} ${token}` : token;
+
+    if (!currentRow || doc.widthOfString(candidate) <= maxWidth) {
+      currentRow = candidate;
+      return;
+    }
+
+    rows.push(currentRow);
+    currentRow = token;
+  });
+
+  if (currentRow) {
+    rows.push(currentRow);
+  }
+
+  return rows;
+}
+
+function buildAttentionLines(doc, customer, lineWidth) {
+  const lines = [];
+  const pushWrappedRows = (text, fontSize, extra = {}) => {
+    wrapTextToRows(doc, text, lineWidth, fontSize).forEach((row) => {
+      lines.push({ text: row, fontSize, ...extra });
+    });
+  };
+
+  pushWrappedRows(customer.attention ? `Sn. ${customer.attention}` : "Sn.", 9.2, {
+    fontName: BOLD_FONT,
+    color: COLORS.brandDark
+  });
+  pushWrappedRows(customer.name || "", 9, {
+    fontName: BOLD_FONT,
+    color: COLORS.text
+  });
+  pushWrappedRows(customer.address || "", 8.6, {
+    fontName: REGULAR_FONT,
+    color: COLORS.text
+  });
+
+  const phoneText = sanitizeText(`Tel: ${customer.tel || ""}`);
+  const emailText = sanitizeText(`E-posta: ${customer.email || ""}`);
+  const combinedContactText = sanitizeText(`${phoneText} | ${emailText}`);
+
+  doc.font(REGULAR_FONT).fontSize(9);
+  if (combinedContactText && doc.widthOfString(combinedContactText) <= lineWidth) {
+    pushWrappedRows(combinedContactText, 9, {
+      fontName: REGULAR_FONT,
+      color: COLORS.text
+    });
+  } else {
+    if (phoneText) {
+      pushWrappedRows(phoneText, 9, {
+        fontName: REGULAR_FONT,
+        color: COLORS.text
+      });
+    }
+
+    if (emailText) {
+      pushWrappedRows(emailText, 8.4, {
+        fontName: REGULAR_FONT,
+        color: COLORS.text
+      });
+    }
+  }
+
+  pushWrappedRows(`Vergi Dairesi: ${customer.taxOffice || ""}`, 9, {
+    fontName: REGULAR_FONT,
+    color: COLORS.text
+  });
+  return lines;
+}
+
 function drawAttentionSection(doc, x, y, width, customer) {
-  const lineWidth = width - 12;
-  const rowHeight = 18;
-  const textOffsetY = 4;
-  const [addressLineOne, addressLineTwo] = splitAddressIntoTwoLines(customer.address || "");
+  const paddingX = 6;
+  const lineWidth = width - paddingX * 2;
+  const minRowHeight = 18;
+  const rowVerticalPadding = 5;
+  const attentionLines = buildAttentionLines(doc, customer, lineWidth);
 
-  const attentionLines = [
-    { text: customer.attention ? `Sn. ${customer.attention}` : "Sn.", align: "left", indent: 0 },
-    { text: customer.name || "", align: "left", indent: 0 },
-    { text: addressLineOne, align: "left", indent: 0 },
-    { text: addressLineTwo, align: "left", indent: 0 },
-    { text: `Tel: ${customer.tel || ""} | E-posta: ${customer.email || ""}`, align: "left", indent: 0 },
-    { text: `Vergi Dairesi: ${customer.taxOffice || ""}`, align: "left", indent: 0 }
-  ];
-
-  doc.font(REGULAR_FONT).fontSize(9).fillColor("#111111").text("DİKKATİNE:", x, y, {
-    width,
+  doc.font(BOLD_FONT).fontSize(10.2).fillColor(COLORS.brandDark).text("DİKKATİNE", x, y, {
+    width: width,
     lineBreak: false
   });
   doc
-    .strokeColor("#8f8f8f")
-    .lineWidth(0.8)
-    .moveTo(x, y + 14)
-    .lineTo(x + lineWidth, y + 14)
+    .strokeColor(COLORS.border)
+    .lineWidth(1)
+    .moveTo(x, y + 16)
+    .lineTo(x + width, y + 16)
     .stroke();
 
-  let rowY = y + rowHeight;
-  attentionLines.forEach(({ text, align, indent = 0 }) => {
+  let rowY = y + 20;
+  attentionLines.forEach(({ text, fontSize = 9, fontName = REGULAR_FONT, color = COLORS.text }, index) => {
     const cleaned = sanitizeText(text);
-    const isAddressLine = cleaned === addressLineOne || cleaned === addressLineTwo;
-    const fontSize = isAddressLine ? 8.6 : 9;
     const textOptions = {
-      width: lineWidth - indent,
-      lineBreak: false,
-      align
+      width: lineWidth,
+      lineBreak: true,
+      align: "left"
     };
+    doc.font(fontName).fontSize(fontSize);
+    const contentHeight = doc.heightOfString(cleaned, {
+      width: lineWidth,
+      align: "left"
+    });
+    const rowHeight = Math.max(minRowHeight, contentHeight + rowVerticalPadding * 2);
+
+    if (index % 2 === 1) {
+      doc.rect(x, rowY, width, rowHeight).fill(COLORS.panel);
+    }
 
     doc
-      .font(REGULAR_FONT)
+      .font(fontName)
       .fontSize(fontSize)
-      .fillColor("#111111")
-      .text(cleaned, x + indent, rowY + textOffsetY, textOptions);
+      .fillColor(color)
+      .text(cleaned, x + paddingX, rowY + rowVerticalPadding, textOptions);
 
-    const dividerY = rowY + rowHeight - 2;
+    const dividerY = rowY + rowHeight;
     doc
-      .strokeColor("#8f8f8f")
+      .strokeColor(COLORS.border)
       .lineWidth(0.8)
       .moveTo(x, dividerY)
-      .lineTo(x + lineWidth, dividerY)
+      .lineTo(x + width, dividerY)
       .stroke();
 
     rowY += rowHeight;
@@ -305,11 +428,13 @@ function drawAttentionSection(doc, x, y, width, customer) {
 function drawMetaCard(doc, x, y, width, quote) {
   const createdAt = quote.createdAt || quote.createdAtLegacy;
   const validityDate = addDays(createdAt, 15);
-  const tableX = x + 10;
+  const panelPadding = 8;
+  const titleY = y + 2;
   const tableY = y + 34;
-  const rowHeight = 15.5;
-  const labelWidth = 70;
-  const valueWidth = width - labelWidth - 10;
+  const rowHeight = 18;
+  const labelWidth = 72;
+  const valueWidth = width - labelWidth - panelPadding;
+  const valueX = x + labelWidth + panelPadding;
 
   const rows = [
     ["TARİH", formatDateCompact(createdAt)],
@@ -318,31 +443,31 @@ function drawMetaCard(doc, x, y, width, quote) {
     ["MÜŞTERİ #", buildCustomerCode(quote.customer.name)]
   ];
 
-  doc.font(BOLD_FONT).fontSize(18).fillColor("#111111");
+  doc.font(BOLD_FONT).fontSize(17).fillColor("#111111");
   const titleWidth = doc.widthOfString("TEKLİF");
-  doc.text("TEKLİF", x + width - titleWidth, y + 2, { lineBreak: false });
+  doc.text("TEKLİF", x + width - titleWidth, titleY, { lineBreak: false });
 
   doc.save();
-  doc.lineWidth(0.8).strokeColor("#b8b8b8");
-  doc.rect(tableX + labelWidth, tableY, valueWidth, rowHeight * rows.length).stroke();
+  doc.rect(valueX, tableY, valueWidth, rowHeight * rows.length).fillAndStroke(COLORS.panel, COLORS.border);
+  doc.lineWidth(0.8).strokeColor(COLORS.border);
   for (let index = 1; index < rows.length; index += 1) {
     const rowY = tableY + rowHeight * index;
-    doc.moveTo(tableX + labelWidth, rowY).lineTo(tableX + labelWidth + valueWidth, rowY).stroke();
+    doc.moveTo(valueX, rowY).lineTo(valueX + valueWidth, rowY).stroke();
   }
   doc.restore();
 
   rows.forEach(([label, value], index) => {
-    const rowY = tableY + index * rowHeight + 4;
-    doc.font(REGULAR_FONT).fontSize(8.5).fillColor("#111111").text(label, tableX, rowY, {
-      width: labelWidth - 6,
+    const rowY = tableY + index * rowHeight + 5;
+    doc.font(REGULAR_FONT).fontSize(8.4).fillColor(COLORS.text).text(label, x, rowY, {
+      width: labelWidth - 8,
       align: "right",
       lineBreak: false
     });
     doc
-      .font(REGULAR_FONT)
-      .fontSize(8.5)
-      .fillColor("#111111")
-      .text(value, tableX + labelWidth + 8, rowY, {
+      .font(index === 1 ? BOLD_FONT : REGULAR_FONT)
+      .fontSize(8.7)
+      .fillColor(COLORS.text)
+      .text(value, valueX + 8, rowY, {
         width: valueWidth - 16,
         align: "center",
         lineBreak: false
@@ -469,7 +594,7 @@ function buildPdfBuffer(quote) {
     companyY = doc.y + 2;
   });
 
-  const dividerY = Math.max(companyY + 8, headerY + 104);
+  const dividerY = Math.max(companyY + 16, headerY + 116);
 
   doc
     .strokeColor("#111111")
@@ -516,9 +641,9 @@ function buildPdfBuffer(quote) {
     .lineTo(PAGE_MARGIN + CONTENT_WIDTH, notesY + 20)
     .stroke();
 
-  if (sanitizeText(quote.notes)) {
+  if (sanitizeText(quote.otherTerms)) {
     doc.font(REGULAR_FONT).fontSize(8.8).fillColor("#111111").text(
-      sanitizeText(quote.notes),
+      sanitizeText(quote.otherTerms),
       PAGE_MARGIN + 8,
       notesY + 28,
       { width: CONTENT_WIDTH - 16, lineGap: 2 }

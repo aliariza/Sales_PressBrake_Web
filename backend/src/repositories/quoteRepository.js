@@ -50,6 +50,7 @@ function mapQuoteRow(row) {
     optionsTotalUsd: toNumberOrNull(row.options_total_usd),
     grandTotalUsd: toNumberOrNull(row.grand_total_usd),
     notes: row.notes || "",
+    otherTerms: row.other_terms || "",
     createdAtLegacy: row.created_at_legacy || "",
     rawData: parseJsonField(row.raw_data, {}),
     createdAt: row.created_at,
@@ -79,6 +80,7 @@ export async function getAllQuotes() {
       options_total_usd,
       grand_total_usd,
       notes,
+      other_terms,
       created_at_legacy,
       raw_data,
       created_at,
@@ -113,6 +115,7 @@ export async function getQuotesByOwnerUserId(ownerUserId) {
       options_total_usd,
       grand_total_usd,
       notes,
+      other_terms,
       created_at_legacy,
       raw_data,
       created_at,
@@ -151,6 +154,7 @@ export async function getQuotesByOwner(ownerUserId, ownerUsername) {
         options_total_usd,
         grand_total_usd,
         notes,
+        other_terms,
         created_at_legacy,
         raw_data,
         created_at,
@@ -187,6 +191,7 @@ export async function getQuotesByOwner(ownerUserId, ownerUsername) {
       options_total_usd,
       grand_total_usd,
       notes,
+      other_terms,
       created_at_legacy,
       raw_data,
       created_at,
@@ -224,6 +229,7 @@ export async function getQuoteById(id) {
       options_total_usd,
       grand_total_usd,
       notes,
+      other_terms,
       created_at_legacy,
       raw_data,
       created_at,
@@ -288,6 +294,7 @@ export async function createQuote(quoteData) {
     optionsTotalUsd,
     grandTotalUsd,
     notes,
+    otherTerms,
     createdAtLegacy
   } = quoteData;
 
@@ -312,13 +319,14 @@ export async function createQuote(quoteData) {
       options_total_usd,
       grand_total_usd,
       notes,
+      other_terms,
       created_at_legacy,
       raw_data
     )
     VALUES (
       $1, $2, $3::jsonb, $4, $5, $6, $7, $8,
       $9, $10, $11, $12, $13, $14::jsonb, $15,
-      $16, $17, $18, $19, $20::jsonb
+      $16, $17, $18, $19, $20, $21::jsonb
     )
     RETURNING
       id,
@@ -340,6 +348,7 @@ export async function createQuote(quoteData) {
       options_total_usd,
       grand_total_usd,
       notes,
+      other_terms,
       created_at_legacy,
       raw_data,
       created_at,
@@ -364,6 +373,7 @@ export async function createQuote(quoteData) {
       optionsTotalUsd,
       grandTotalUsd,
       notes || "",
+      otherTerms || "",
       createdAtLegacy || "",
       JSON.stringify(quoteData)
     ]
@@ -392,6 +402,7 @@ export async function updateQuote(id, quoteData) {
     optionsTotalUsd,
     grandTotalUsd,
     notes,
+    otherTerms,
     createdAtLegacy
   } = quoteData;
 
@@ -417,10 +428,11 @@ export async function updateQuote(id, quoteData) {
       options_total_usd = $16,
       grand_total_usd = $17,
       notes = $18,
-      created_at_legacy = $19,
-      raw_data = $20::jsonb,
+      other_terms = $19,
+      created_at_legacy = $20,
+      raw_data = $21::jsonb,
       updated_at = NOW()
-    WHERE id = $21
+    WHERE id = $22
     RETURNING
       id,
       legacy_no,
@@ -441,6 +453,7 @@ export async function updateQuote(id, quoteData) {
       options_total_usd,
       grand_total_usd,
       notes,
+      other_terms,
       created_at_legacy,
       raw_data,
       created_at,
@@ -465,6 +478,7 @@ export async function updateQuote(id, quoteData) {
       optionsTotalUsd,
       grandTotalUsd,
       notes || "",
+      otherTerms || "",
       createdAtLegacy || "",
       JSON.stringify(quoteData),
       id
@@ -503,6 +517,7 @@ export async function deleteQuote(id) {
       options_total_usd,
       grand_total_usd,
       notes,
+      other_terms,
       created_at_legacy,
       raw_data,
       created_at,

@@ -31,6 +31,7 @@ export async function ensureQuotesSchema() {
       ADD COLUMN IF NOT EXISTS options_total_usd NUMERIC,
       ADD COLUMN IF NOT EXISTS grand_total_usd NUMERIC,
       ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '',
+      ADD COLUMN IF NOT EXISTS other_terms TEXT DEFAULT '',
       ADD COLUMN IF NOT EXISTS created_at_legacy TEXT DEFAULT '',
       ADD COLUMN IF NOT EXISTS raw_data JSONB DEFAULT '{}'::jsonb,
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
