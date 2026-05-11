@@ -2,8 +2,6 @@
   <section class="resource-shell">
     <PageIntro title="Teklifler" description="Teklifleri görüntüleyin, inceleyin, silin ve dışa aktarın." />
 
-    <LoadingState v-if="initialLoading" class="page-loading-state" label="Teklif verileri yükleniyor" />
-
     <div class="quotes-layout">
       <article class="card resource-card table-card quotes-list-card">
         <div class="toolbar">
@@ -226,7 +224,6 @@ const downloadingId = ref("");
 const error = ref("");
 const success = ref("");
 const canDeleteQuotes = computed(() => auth.user?.role === "admin");
-const initialLoading = computed(() => loadingList.value && !quotes.value.length);
 
 function formatDate(value) {
   if (!value) {

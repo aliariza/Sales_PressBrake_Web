@@ -2,8 +2,6 @@
   <section class="resource-shell">
     <PageIntro title="Kullanıcılar" description="Kullanıcıları ve rollerini yönetin." />
 
-    <LoadingState v-if="initialLoading" class="page-loading-state" label="Kullanıcı verileri yükleniyor" />
-
     <div class="resource-grid">
       <article class="card resource-card stack">
         <div>
@@ -117,7 +115,6 @@ const {
   form,
   loading,
   fetching,
-  initialLoading,
   error,
   success,
   resetForm,

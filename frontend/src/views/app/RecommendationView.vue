@@ -5,8 +5,6 @@
       description="Bilgileri girin, önerileri alın ve teklif oluşturun."
     />
 
-    <LoadingState v-if="initialLoading" class="page-loading-state" label="Form verileri yükleniyor" />
-
     <div class="resource-grid">
       <article class="card resource-card">
         <p class="eyebrow">Adım 1</p>
@@ -374,7 +372,6 @@ const quoteReady = computed(() =>
     : Boolean(customerReady.value && selectedMachine.value && recommendationReady.value)
 );
 const isEditing = computed(() => Boolean(editingQuoteId.value));
-const initialLoading = computed(() => fetchingMaterials.value && !materials.value.length);
 const serviceSummaryTitle = computed(() => {
   const value = form.serviceDescription.trim();
   return value ? value.slice(0, 80) : "Servis işi girilmedi";

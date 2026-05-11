@@ -2,8 +2,6 @@
   <section class="resource-shell">
     <PageIntro title="Makineler" description="Makine kapasitesi ve fiyatlarını yönetin." />
 
-    <LoadingState v-if="initialLoading" class="page-loading-state" label="Makine verileri yükleniyor" />
-
     <div class="resource-grid">
       <article class="card resource-card stack">
         <div>
@@ -103,7 +101,6 @@ const {
   form,
   loading,
   fetching,
-  initialLoading,
   error,
   success,
   resetForm,

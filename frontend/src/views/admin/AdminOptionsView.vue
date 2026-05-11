@@ -2,8 +2,6 @@
   <section class="resource-shell">
     <PageIntro title="Opsiyonlar" description="Teklif opsiyonlarını ve fiyatlarını yönetin." />
 
-    <LoadingState v-if="initialLoading" class="page-loading-state" label="Opsiyon verileri yükleniyor" />
-
     <div class="resource-grid">
       <article class="card resource-card stack">
         <div>
@@ -97,7 +95,6 @@ const {
   form,
   loading,
   fetching,
-  initialLoading,
   error,
   success,
   resetForm,
