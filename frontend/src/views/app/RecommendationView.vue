@@ -5,9 +5,7 @@
       description="Bilgileri girin, önerileri alın ve teklif oluşturun."
     />
 
-    <div v-if="initialLoading" class="loading-state page-loading-state">
-      Form verileri yükleniyor...
-    </div>
+    <LoadingState v-if="initialLoading" class="page-loading-state" label="Form verileri yükleniyor" />
 
     <div class="resource-grid">
       <article class="card resource-card">
@@ -108,9 +106,7 @@
 
     <article v-if="!isServiceProforma" class="card resource-card table-card">
       <h3 class="section-title">Önerilen Makineler</h3>
-      <div v-if="fetchingMaterials" class="loading-state">
-        Malzeme kataloğu yükleniyor...
-      </div>
+      <LoadingState v-if="fetchingMaterials" label="Malzeme kataloğu yükleniyor" />
       <div v-else-if="!machineResults.length" class="empty-state">
         Uygun makineleri görmek için öneri çalıştırın.
       </div>
@@ -149,9 +145,7 @@
 
     <article v-if="!isServiceProforma" class="card resource-card table-card">
       <h3 class="section-title">Önerilen Takımlar</h3>
-      <div v-if="loading && !toolingResults.length" class="loading-state">
-        Takım önerileri hazırlanıyor...
-      </div>
+      <LoadingState v-if="loading && !toolingResults.length" label="Takım önerileri hazırlanıyor" />
       <div v-else-if="!toolingResults.length" class="empty-state">
         Takım önerileri makine önerileriyle birlikte görünecek.
       </div>
@@ -188,9 +182,7 @@
 
     <article v-if="!isServiceProforma" class="card resource-card table-card">
       <h3 class="section-title">Mevcut Opsiyonlar</h3>
-      <div v-if="loading && !options.length" class="loading-state">
-        Teklif opsiyonları yükleniyor...
-      </div>
+      <LoadingState v-if="loading && !options.length" label="Teklif opsiyonları yükleniyor" />
       <div v-else-if="!options.length" class="empty-state">
         Mevcut teklif opsiyonları öneriler yüklendikten sonra burada görünecek.
       </div>
@@ -302,6 +294,7 @@ import { useRoute, useRouter } from "vue-router";
 import { http } from "../../api/http";
 import { listResource } from "../../api/resources";
 import IconGlyph from "../../components/shared/IconGlyph.vue";
+import LoadingState from "../../components/shared/LoadingState.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
 import { getErrorMessage } from "../../utils/errors";
 import { formatCurrency, formatNumber } from "../../utils/formatters";

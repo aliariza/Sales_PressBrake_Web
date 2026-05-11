@@ -2,9 +2,7 @@
   <section class="resource-shell">
     <PageIntro title="Takımlar" description="V-kalıp ve takım yapılandırmasını yönetin." />
 
-    <div v-if="initialLoading" class="loading-state page-loading-state">
-      Takım verileri yükleniyor...
-    </div>
+    <LoadingState v-if="initialLoading" class="page-loading-state" label="Takım verileri yükleniyor" />
 
     <div class="resource-grid">
       <article class="card resource-card stack">
@@ -52,9 +50,7 @@
           </button>
         </div>
 
-        <div v-if="fetching && !toolings.length" class="loading-state">
-          Takımlar yükleniyor...
-        </div>
+        <LoadingState v-if="fetching && !toolings.length" label="Takımlar yükleniyor" />
 
         <div v-else-if="!toolings.length" class="empty-state">
           Henüz takım yok. Başlamak için standart V-kalıplar ve punçlar ekleyin.
@@ -94,6 +90,7 @@
 
 <script setup>
 import IconGlyph from "../../components/shared/IconGlyph.vue";
+import LoadingState from "../../components/shared/LoadingState.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
 import { useAdminResource } from "../../composables/useAdminResource";
 import { formatNumber } from "../../utils/formatters";

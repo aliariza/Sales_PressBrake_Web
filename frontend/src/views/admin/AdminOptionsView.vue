@@ -2,9 +2,7 @@
   <section class="resource-shell">
     <PageIntro title="Opsiyonlar" description="Teklif opsiyonlarını ve fiyatlarını yönetin." />
 
-    <div v-if="initialLoading" class="loading-state page-loading-state">
-      Opsiyon verileri yükleniyor...
-    </div>
+    <LoadingState v-if="initialLoading" class="page-loading-state" label="Opsiyon verileri yükleniyor" />
 
     <div class="resource-grid">
       <article class="card resource-card stack">
@@ -51,9 +49,7 @@
           </button>
         </div>
 
-        <div v-if="fetching && !options.length" class="loading-state">
-          Opsiyonlar yükleniyor...
-        </div>
+        <LoadingState v-if="fetching && !options.length" label="Opsiyonlar yükleniyor" />
 
         <div v-else-if="!options.length" class="empty-state">
           Henüz ticari opsiyon yok. Yükseltme paketlerini veya güvenlik özelliklerini buraya ekleyin.
@@ -91,6 +87,7 @@
 
 <script setup>
 import IconGlyph from "../../components/shared/IconGlyph.vue";
+import LoadingState from "../../components/shared/LoadingState.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
 import { useAdminResource } from "../../composables/useAdminResource";
 import { formatCurrency } from "../../utils/formatters";

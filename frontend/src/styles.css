@@ -379,12 +379,31 @@ textarea {
   background: var(--loading-bg);
   min-height: 84px;
   display: grid;
-  align-items: center;
+  place-items: center;
 }
 
 .page-loading-state {
   margin-bottom: 20px;
   font-weight: 600;
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid rgba(127, 146, 168, 0.26);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spinner-rotate 0.85s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .detail-list {

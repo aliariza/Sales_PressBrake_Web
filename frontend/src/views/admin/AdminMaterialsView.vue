@@ -2,9 +2,7 @@
   <section class="resource-shell">
     <PageIntro title="Malzemeler" description="Büküm malzemesi verilerini yönetin." />
 
-    <div v-if="initialLoading" class="loading-state page-loading-state">
-      Malzeme verileri yükleniyor...
-    </div>
+    <LoadingState v-if="initialLoading" class="page-loading-state" label="Malzeme verileri yükleniyor" />
 
     <div class="resource-grid">
       <article class="card resource-card stack">
@@ -56,9 +54,7 @@
           </button>
         </div>
 
-        <div v-if="fetching && !materials.length" class="loading-state">
-          Malzemeler yükleniyor...
-        </div>
+        <LoadingState v-if="fetching && !materials.length" label="Malzemeler yükleniyor" />
 
         <div v-else-if="!materials.length" class="empty-state">
           Henüz malzeme yok. Öneri üretmeye başlamak için bir tane ekleyin.
@@ -100,6 +96,7 @@
 
 <script setup>
 import IconGlyph from "../../components/shared/IconGlyph.vue";
+import LoadingState from "../../components/shared/LoadingState.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
 import { useAdminResource } from "../../composables/useAdminResource";
 import { formatNumber } from "../../utils/formatters";

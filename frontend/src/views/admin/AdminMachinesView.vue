@@ -2,9 +2,7 @@
   <section class="resource-shell">
     <PageIntro title="Makineler" description="Makine kapasitesi ve fiyatlarını yönetin." />
 
-    <div v-if="initialLoading" class="loading-state page-loading-state">
-      Makine verileri yükleniyor...
-    </div>
+    <LoadingState v-if="initialLoading" class="page-loading-state" label="Makine verileri yükleniyor" />
 
     <div class="resource-grid">
       <article class="card resource-card stack">
@@ -53,9 +51,7 @@
           </button>
         </div>
 
-        <div v-if="fetching && !machines.length" class="loading-state">
-          Makineler yükleniyor...
-        </div>
+        <LoadingState v-if="fetching && !machines.length" label="Makineler yükleniyor" />
 
         <div v-else-if="!machines.length" class="empty-state">
           Henüz makine yok. Uygun önerileri etkinleştirmek için bir makine ekleyin.
@@ -97,6 +93,7 @@
 
 <script setup>
 import IconGlyph from "../../components/shared/IconGlyph.vue";
+import LoadingState from "../../components/shared/LoadingState.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
 import { useAdminResource } from "../../composables/useAdminResource";
 import { formatCurrency, formatNumber } from "../../utils/formatters";

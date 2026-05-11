@@ -2,9 +2,7 @@
   <section class="resource-shell">
     <PageIntro title="Kullanıcılar" description="Kullanıcıları ve rollerini yönetin." />
 
-    <div v-if="initialLoading" class="loading-state page-loading-state">
-      Kullanıcı verileri yükleniyor...
-    </div>
+    <LoadingState v-if="initialLoading" class="page-loading-state" label="Kullanıcı verileri yükleniyor" />
 
     <div class="resource-grid">
       <article class="card resource-card stack">
@@ -70,9 +68,7 @@
           </button>
         </div>
 
-        <div v-if="fetching && !users.length" class="loading-state">
-          Kullanıcılar yükleniyor...
-        </div>
+        <LoadingState v-if="fetching && !users.length" label="Kullanıcılar yükleniyor" />
 
         <div v-else-if="!users.length" class="empty-state">
           Henüz kullanıcı yok. Soldaki formdan ilk kullanıcıyı oluşturun.
@@ -112,6 +108,7 @@
 import { computed } from "vue";
 
 import IconGlyph from "../../components/shared/IconGlyph.vue";
+import LoadingState from "../../components/shared/LoadingState.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
 import { useAdminResource } from "../../composables/useAdminResource";
 

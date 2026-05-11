@@ -2,9 +2,7 @@
   <section class="resource-shell">
     <PageIntro title="Teklifler" description="Teklifleri görüntüleyin, inceleyin, silin ve dışa aktarın." />
 
-    <div v-if="initialLoading" class="loading-state page-loading-state">
-      Teklif verileri yükleniyor...
-    </div>
+    <LoadingState v-if="initialLoading" class="page-loading-state" label="Teklif verileri yükleniyor" />
 
     <div class="quotes-layout">
       <article class="card resource-card table-card quotes-list-card">
@@ -21,9 +19,7 @@
           </button>
         </div>
 
-        <div v-if="loadingList && !quotes.length" class="loading-state">
-          Teklifler yükleniyor...
-        </div>
+        <LoadingState v-if="loadingList && !quotes.length" label="Teklifler yükleniyor" />
         <div v-else-if="!quotes.length" class="empty-state">
           Henüz teklif yok. Öneri sayfasından bir teklif kaydedin; burada görünecektir.
         </div>
@@ -92,9 +88,7 @@
       <article class="card resource-card stack quotes-detail-card">
         <h3 class="section-title">Teklif Detayları</h3>
 
-        <div v-if="loadingDetail" class="loading-state">
-          Teklif detayları yükleniyor...
-        </div>
+        <LoadingState v-if="loadingDetail" label="Teklif detayları yükleniyor" />
 
         <template v-else-if="selectedQuote">
           <section class="quote-detail-section">
@@ -214,6 +208,7 @@ import { useRouter } from "vue-router";
 import { http } from "../../api/http";
 import { listResource } from "../../api/resources";
 import IconGlyph from "../../components/shared/IconGlyph.vue";
+import LoadingState from "../../components/shared/LoadingState.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
 import { useAuthStore } from "../../stores/auth";
 import { getErrorMessage } from "../../utils/errors";
