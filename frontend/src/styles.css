@@ -382,6 +382,11 @@ textarea {
   align-items: center;
 }
 
+.page-loading-state {
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
 .detail-list {
   display: grid;
   gap: 10px;

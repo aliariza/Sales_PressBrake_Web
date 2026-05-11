@@ -22,11 +22,6 @@
           Giriş Yap
         </button>
       </form>
-
-      <div class="login-hint">
-        <strong>Hazır hesaplar</strong>
-        <span>`admin / 1234` veya `operator / abcd`</span>
-      </div>
     </section>
   </div>
 </template>
@@ -86,16 +81,5 @@ input {
   border: 1px solid var(--line-soft);
   border-radius: 0;
   padding: 12px 14px;
-}
-
-.login-hint {
-  margin-top: 18px;
-  padding: 12px 0 0;
-  border-top: 1px solid rgba(191, 205, 219, 0.42);
-  border-radius: 0;
-  background: transparent;
-  color: var(--ink-soft);
-  display: grid;
-  gap: 4px;
 }
 </style>

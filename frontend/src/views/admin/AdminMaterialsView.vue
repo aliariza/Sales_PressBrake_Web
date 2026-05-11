@@ -2,6 +2,10 @@
   <section class="resource-shell">
     <PageIntro title="Malzemeler" description="Büküm malzemesi verilerini yönetin." />
 
+    <div v-if="initialLoading" class="loading-state page-loading-state">
+      Malzeme verileri yükleniyor...
+    </div>
+
     <div class="resource-grid">
       <article class="card resource-card stack">
         <div>
@@ -105,6 +109,7 @@ const {
   form,
   loading,
   fetching,
+  initialLoading,
   error,
   success,
   resetForm,

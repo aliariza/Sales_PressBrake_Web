@@ -2,12 +2,7 @@ const numberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2
 });
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2
-});
+const currencyFormatters = new Map();
 
 function toFiniteNumber(value) {
   const parsed = Number(value);
@@ -23,12 +18,23 @@ export function formatNumber(value, suffix = "", fallback = "-") {
   return `${numberFormatter.format(parsed)}${suffix}`;
 }
 
-export function formatCurrency(value, fallback = "-") {
+export function formatCurrency(value, currencyCode = "USD", fallback = "-") {
   const parsed = toFiniteNumber(value);
   if (parsed === null) {
     return fallback;
   }
 
-  return currencyFormatter.format(parsed);
-}
+  if (!currencyFormatters.has(currencyCode)) {
+    currencyFormatters.set(
+      currencyCode,
+      new Intl.NumberFormat(currencyCode === "TRY" ? "tr-TR" : "en-US", {
+        style: "currency",
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
+    );
+  }
 
+  return currencyFormatters.get(currencyCode).format(parsed);
+}

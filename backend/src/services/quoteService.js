@@ -30,6 +30,12 @@ import {
   getToolingById as getToolingByIdFromDb
 } from "../repositories/toolingRepository.js";
 
+const DEFAULT_BANK_DETAILS = [
+  "Tumex Mümessillik ve Dış Ticaret Ltd. Şti.",
+  "GARANTİ BBVA",
+  "IBAN: TR28 0006 2001 1820 0006 2974 64"
+].join("\n");
+
 function isUuid(id) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     id
@@ -283,8 +289,58 @@ function normalizeCustomer(customer) {
   };
 }
 
+function normalizeDocumentType(value, fallback = "quote") {
+  return value === "service_proforma" ? "service_proforma" : fallback;
+}
+
 async function buildQuoteData(payload, user, existingQuote = null) {
   const customer = normalizeCustomer(payload.customer);
+  const documentType = normalizeDocumentType(
+    payload.documentType,
+    existingQuote?.documentType || "quote"
+  );
+  const ownerUserId = user?.sub && isUuid(user.sub) ? user.sub : existingQuote?.ownerUserId ?? null;
+
+  if (documentType === "service_proforma") {
+    const serviceDescription = payload.serviceDescription?.trim() || "";
+    if (!serviceDescription) {
+      const error = new Error("Yapılacak iş açıklaması zorunludur");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const serviceAmount = parsePositiveNumber(payload.serviceAmount, "Hizmet tutarı");
+
+    return {
+      legacyNo: payload.legacyNo?.toString().trim() || existingQuote?.legacyNo || "",
+      customer,
+      ownerUserId,
+      ownerUsername: user.username,
+      documentType,
+      currencyCode: "TRY",
+      materialId: null,
+      materialNameSnapshot: "Servis",
+      thicknessMm: null,
+      bendLengthMm: null,
+      machineId: null,
+      machineModelSnapshot: "",
+      serviceDescription,
+      toolingId: null,
+      toolingNameSnapshot: "",
+      selectedOptions: [],
+      machinePriceUsd: serviceAmount,
+      optionsTotalUsd: 0,
+      grandTotalUsd: serviceAmount,
+      notes: payload.notes?.trim() || "",
+      otherTerms: payload.otherTerms?.trim() || "",
+      bankDetails: payload.bankDetails?.trim() || existingQuote?.bankDetails || DEFAULT_BANK_DETAILS,
+      createdAtLegacy:
+        payload.createdAtLegacy?.trim() ||
+        existingQuote?.createdAtLegacy ||
+        new Date().toISOString()
+    };
+  }
+
   const thicknessMm = parsePositiveNumber(payload.thicknessMm, "Kalınlık");
   const bendLengthMm = parsePositiveNumber(payload.bendLengthMm, "Büküm boyu");
 
@@ -309,19 +365,21 @@ async function buildQuoteData(payload, user, existingQuote = null) {
     machine.machinePriceUsd,
     "Makine fiyatı"
   );
-  const ownerUserId = user?.sub && isUuid(user.sub) ? user.sub : existingQuote?.ownerUserId ?? null;
 
   return {
     legacyNo: payload.legacyNo?.toString().trim() || existingQuote?.legacyNo || "",
     customer,
     ownerUserId,
     ownerUsername: user.username,
+    documentType,
+    currencyCode: "USD",
     materialId: material.materialId,
     materialNameSnapshot: material.materialNameSnapshot,
     thicknessMm,
     bendLengthMm,
     machineId: machine.machineId,
     machineModelSnapshot: machine.machineModelSnapshot,
+    serviceDescription: "",
     toolingId: tooling.toolingId,
     toolingNameSnapshot: tooling.toolingNameSnapshot,
     selectedOptions: options.selectedOptions,
@@ -330,6 +388,7 @@ async function buildQuoteData(payload, user, existingQuote = null) {
     grandTotalUsd: machinePriceUsd + options.optionsTotalUsd,
     notes: payload.notes?.trim() || "",
     otherTerms: payload.otherTerms?.trim() || "",
+    bankDetails: "",
     createdAtLegacy: payload.createdAtLegacy?.trim() || existingQuote?.createdAtLegacy || new Date().toISOString()
   };
 }

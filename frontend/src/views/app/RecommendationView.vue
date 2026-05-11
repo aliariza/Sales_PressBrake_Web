@@ -5,11 +5,24 @@
       description="Bilgileri girin, önerileri alın ve teklif oluşturun."
     />
 
+    <div v-if="initialLoading" class="loading-state page-loading-state">
+      Form verileri yükleniyor...
+    </div>
+
     <div class="resource-grid">
       <article class="card resource-card">
         <p class="eyebrow">Adım 1</p>
         <h3 class="section-title">Girdiler</h3>
         <form class="resource-form" @submit.prevent="runRecommendation">
+          <label>
+            Belge Türü
+            <select v-model="form.documentType" :disabled="saving" @change="handleDocumentTypeChange">
+              <option value="quote">Standart Teklif</option>
+              <option value="service_proforma">Servis Proforma Fatura</option>
+            </select>
+          </label>
+
+          <template v-if="!isServiceProforma">
           <label>
             Malzeme
             <select
@@ -33,6 +46,19 @@
             Büküm Boyu mm
             <input v-model.number="form.bendLengthMm" type="number" step="any" required :disabled="loading" />
           </label>
+          </template>
+
+          <template v-else>
+            <label>
+              Yapılacak İş
+              <textarea v-model="form.serviceDescription" rows="5" :disabled="saving" />
+            </label>
+
+            <label>
+              Tutar TL
+              <input v-model.number="form.serviceAmount" type="number" step="any" min="0" :disabled="saving" />
+            </label>
+          </template>
 
           <label>
             Notlar
@@ -44,7 +70,13 @@
             <textarea v-model="form.otherTerms" rows="5" :disabled="loading || saving" />
           </label>
 
+          <label v-if="isServiceProforma">
+            Banka Detayları
+            <textarea v-model="form.bankDetails" rows="5" :disabled="loading || saving" />
+          </label>
+
           <button
+            v-if="!isServiceProforma"
             class="button-primary"
             :disabled="loading || fetchingMaterials"
             aria-label="Öneri getir"
@@ -53,6 +85,10 @@
             <IconGlyph name="refresh" />
             {{ loading ? "Hesaplanıyor..." : "Öneri Getir" }}
           </button>
+
+          <p v-else class="empty-state">
+            Servis proforma faturada öneri hesabı yerine doğrudan iş açıklaması ve TL tutarı kullanılır.
+          </p>
         </form>
       </article>
 
@@ -70,7 +106,7 @@
       </article>
     </div>
 
-    <article class="card resource-card table-card">
+    <article v-if="!isServiceProforma" class="card resource-card table-card">
       <h3 class="section-title">Önerilen Makineler</h3>
       <div v-if="fetchingMaterials" class="loading-state">
         Malzeme kataloğu yükleniyor...
@@ -111,7 +147,7 @@
       </table>
     </article>
 
-    <article class="card resource-card table-card">
+    <article v-if="!isServiceProforma" class="card resource-card table-card">
       <h3 class="section-title">Önerilen Takımlar</h3>
       <div v-if="loading && !toolingResults.length" class="loading-state">
         Takım önerileri hazırlanıyor...
@@ -150,7 +186,7 @@
       </table>
     </article>
 
-    <article class="card resource-card table-card">
+    <article v-if="!isServiceProforma" class="card resource-card table-card">
       <h3 class="section-title">Mevcut Opsiyonlar</h3>
       <div v-if="loading && !options.length" class="loading-state">
         Teklif opsiyonları yükleniyor...
@@ -205,28 +241,42 @@
       <section class="recommendation-sheet">
         <div class="recommendation-sheet-header">
           <div>
-            <p class="eyebrow">Mevcut Teklif</p>
-            <h4 class="recommendation-sheet-title">{{ selectedMachine?.model || "Makine seçilmedi" }}</h4>
+            <p class="eyebrow">{{ isServiceProforma ? "Servis Proforma" : "Mevcut Teklif" }}</p>
+            <h4 class="recommendation-sheet-title">
+              {{ isServiceProforma ? serviceSummaryTitle : (selectedMachine?.model || "Makine seçilmedi") }}
+            </h4>
           </div>
-          <div class="recommendation-sheet-total">{{ formatCurrency(grandTotal) }}</div>
+          <div class="recommendation-sheet-total">{{ formatCurrency(grandTotal, displayCurrencyCode) }}</div>
         </div>
 
         <dl class="recommendation-facts">
           <div class="recommendation-fact-row">
+            <dt>Belge Türü</dt>
+            <dd>{{ isServiceProforma ? "Servis Proforma Fatura" : "Standart Teklif" }}</dd>
+          </div>
+          <div v-if="!isServiceProforma" class="recommendation-fact-row">
             <dt>Malzeme</dt>
             <dd>{{ form.materialNameSnapshot || "-" }}</dd>
           </div>
-          <div class="recommendation-fact-row">
+          <div v-if="!isServiceProforma" class="recommendation-fact-row">
             <dt>Takım</dt>
             <dd>{{ selectedTooling?.name || "-" }}</dd>
           </div>
-          <div class="recommendation-fact-row">
+          <div v-if="!isServiceProforma" class="recommendation-fact-row">
             <dt>Seçilen Opsiyon</dt>
             <dd>{{ selectedOptions.length }}</dd>
           </div>
-          <div class="recommendation-fact-row">
+          <div v-if="!isServiceProforma" class="recommendation-fact-row">
             <dt>Opsiyon Toplamı</dt>
-            <dd>{{ formatCurrency(optionsTotal) }}</dd>
+            <dd>{{ formatCurrency(optionsTotal, displayCurrencyCode) }}</dd>
+          </div>
+          <div v-if="isServiceProforma" class="recommendation-fact-row">
+            <dt>Yapılacak İş</dt>
+            <dd>{{ form.serviceDescription || "-" }}</dd>
+          </div>
+          <div v-if="isServiceProforma" class="recommendation-fact-row">
+            <dt>Para Birimi</dt>
+            <dd>TL</dd>
           </div>
           <div class="recommendation-fact-row">
             <dt>Müşteri Hazır</dt>
@@ -270,12 +320,16 @@ const route = useRoute();
 const router = useRouter();
 
 const form = reactive({
+  documentType: "quote",
   materialId: "",
   materialNameSnapshot: "",
   thicknessMm: "",
   bendLengthMm: "",
   notes: "",
-  otherTerms: ""
+  otherTerms: "",
+  bankDetails: "",
+  serviceDescription: "",
+  serviceAmount: ""
 });
 
 const customer = reactive({
@@ -293,13 +347,19 @@ const selectedOptions = ref([]);
 
 const selectedMachineId = computed(() => selectedMachine.value?._id || selectedMachine.value?.id || "");
 const selectedToolingId = computed(() => selectedTooling.value?._id || selectedTooling.value?.id || "");
+const isServiceProforma = computed(() => form.documentType === "service_proforma");
 const selectedOptionIds = computed(
   () => new Set(selectedOptions.value.map((option) => option._id || option.id))
 );
 const optionsTotal = computed(() =>
   selectedOptions.value.reduce((sum, option) => sum + Number(option.priceUsd || 0), 0)
 );
-const grandTotal = computed(() => Number(selectedMachine.value?.basePriceUSD || 0) + optionsTotal.value);
+const grandTotal = computed(() =>
+  isServiceProforma.value
+    ? Number(form.serviceAmount || 0)
+    : Number(selectedMachine.value?.basePriceUSD || 0) + optionsTotal.value
+);
+const displayCurrencyCode = computed(() => (isServiceProforma.value ? "TRY" : "USD"));
 const customerReady = computed(
   () =>
     Boolean(
@@ -310,10 +370,22 @@ const customerReady = computed(
     )
 );
 const recommendationReady = computed(
-  () => Boolean(form.materialNameSnapshot && form.thicknessMm && form.bendLengthMm)
+  () =>
+    isServiceProforma.value
+      ? Boolean(form.serviceDescription.trim() && Number(form.serviceAmount) > 0)
+      : Boolean(form.materialNameSnapshot && form.thicknessMm && form.bendLengthMm)
 );
-const quoteReady = computed(() => Boolean(customerReady.value && selectedMachine.value && recommendationReady.value));
+const quoteReady = computed(() =>
+  isServiceProforma.value
+    ? Boolean(customerReady.value && recommendationReady.value)
+    : Boolean(customerReady.value && selectedMachine.value && recommendationReady.value)
+);
 const isEditing = computed(() => Boolean(editingQuoteId.value));
+const initialLoading = computed(() => fetchingMaterials.value && !materials.value.length);
+const serviceSummaryTitle = computed(() => {
+  const value = form.serviceDescription.trim();
+  return value ? value.slice(0, 80) : "Servis işi girilmedi";
+});
 
 function isUuid(value) {
   return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -331,12 +403,16 @@ function getUuidOrNull(...values) {
 
 function applyQuoteToForm(quote) {
   editingQuoteId.value = quote.id;
+  form.documentType = quote.documentType || "quote";
   form.materialId = quote.materialId || "";
   form.materialNameSnapshot = quote.materialNameSnapshot || "";
   form.thicknessMm = quote.thicknessMm || "";
   form.bendLengthMm = quote.bendLengthMm || "";
   form.notes = quote.notes || "";
   form.otherTerms = quote.otherTerms || "";
+  form.bankDetails = quote.bankDetails || DEFAULT_BANK_DETAILS;
+  form.serviceDescription = quote.serviceDescription || "";
+  form.serviceAmount = quote.documentType === "service_proforma" ? quote.grandTotalUsd || "" : "";
 
   customer.name = quote.customer?.name || "";
   customer.attention = quote.customer?.attention || "";
@@ -345,25 +421,31 @@ function applyQuoteToForm(quote) {
   customer.email = quote.customer?.email || "";
   customer.taxOffice = quote.customer?.taxOffice || "";
 
-  selectedMachine.value = {
-    id: quote.machineId || null,
-    model: quote.machineModelSnapshot || "",
-    basePriceUSD: quote.machinePriceUsd || 0
-  };
+  selectedMachine.value = quote.documentType === "service_proforma"
+    ? null
+    : {
+        id: quote.machineId || null,
+        model: quote.machineModelSnapshot || "",
+        basePriceUSD: quote.machinePriceUsd || 0
+      };
 
-  selectedTooling.value = quote.toolingNameSnapshot
-    ? {
-        id: quote.toolingId || null,
-        name: quote.toolingNameSnapshot
-      }
-    : null;
+  selectedTooling.value = quote.documentType === "service_proforma"
+    ? null
+    : quote.toolingNameSnapshot
+      ? {
+          id: quote.toolingId || null,
+          name: quote.toolingNameSnapshot
+        }
+      : null;
 
-  selectedOptions.value = (quote.selectedOptions || []).map((option) => ({
-    id: option.optionId || null,
-    code: option.code,
-    name: option.name,
-    priceUsd: option.priceUsd
-  }));
+  selectedOptions.value = quote.documentType === "service_proforma"
+    ? []
+    : (quote.selectedOptions || []).map((option) => ({
+        id: option.optionId || null,
+        code: option.code,
+        name: option.name,
+        priceUsd: option.priceUsd
+      }));
 }
 
 function restoreSelections(previousMachine, previousTooling, previousOptions) {
@@ -419,6 +501,30 @@ function syncSelectedMaterial() {
   form.materialId = material?.id || "";
 }
 
+function handleDocumentTypeChange() {
+  error.value = "";
+  success.value = "";
+
+  if (isServiceProforma.value) {
+    machineResults.value = [];
+    toolingResults.value = [];
+    options.value = [];
+    selectedMachine.value = null;
+    selectedTooling.value = null;
+    selectedOptions.value = [];
+    form.materialId = "";
+    form.materialNameSnapshot = "";
+    form.thicknessMm = "";
+    form.bendLengthMm = "";
+    form.bankDetails = form.bankDetails.trim() || DEFAULT_BANK_DETAILS;
+    return;
+  }
+
+  form.serviceDescription = "";
+  form.serviceAmount = "";
+  form.bankDetails = "";
+}
+
 async function loadMaterials() {
   fetchingMaterials.value = true;
   error.value = "";
@@ -439,7 +545,9 @@ async function loadQuoteForEditing(id) {
     error.value = "";
     const { data } = await http.get(`/quotes/${id}`);
     applyQuoteToForm(data.item);
-    await runRecommendation({ preserveSelections: true, suppressSuccess: true });
+    if (!isServiceProforma.value) {
+      await runRecommendation({ preserveSelections: true, suppressSuccess: true });
+    }
   } catch (err) {
     error.value = getErrorMessage(err, "Teklif düzenleme için yüklenemedi");
   } finally {
@@ -448,6 +556,10 @@ async function loadQuoteForEditing(id) {
 }
 
 async function runRecommendation(config = {}) {
+  if (isServiceProforma.value) {
+    return;
+  }
+
   const { preserveSelections = false, suppressSuccess = false } = config;
   const previousMachine = preserveSelections ? selectedMachine.value : null;
   const previousTooling = preserveSelections ? selectedTooling.value : null;
@@ -495,12 +607,15 @@ async function saveQuote() {
   try {
     const payload = {
       customer: { ...customer },
+      documentType: form.documentType,
       materialId: getUuidOrNull(form.materialId),
       materialNameSnapshot: form.materialNameSnapshot,
       thicknessMm: form.thicknessMm,
       bendLengthMm: form.bendLengthMm,
       machineId: getUuidOrNull(selectedMachine.value?._id, selectedMachine.value?.id),
       machineModelSnapshot: selectedMachine.value?.model || "",
+      serviceDescription: form.serviceDescription,
+      serviceAmount: form.serviceAmount,
       machinePriceUsd: selectedMachine.value?.basePriceUSD || 0,
       toolingId: getUuidOrNull(selectedTooling.value?._id, selectedTooling.value?.id),
       toolingNameSnapshot: selectedTooling.value?.name || "",
@@ -511,7 +626,8 @@ async function saveQuote() {
         priceUsd: option.priceUsd
       })),
       notes: form.notes,
-      otherTerms: form.otherTerms
+      otherTerms: form.otherTerms,
+      bankDetails: form.bankDetails
     };
 
     const { data } = isEditing.value
@@ -532,12 +648,19 @@ async function saveQuote() {
 }
 
 onMounted(async () => {
+  form.bankDetails = DEFAULT_BANK_DETAILS;
   await loadMaterials();
 
   if (typeof route.query.edit === "string" && route.query.edit) {
     await loadQuoteForEditing(route.query.edit);
   }
 });
+
+const DEFAULT_BANK_DETAILS = [
+  "Tumex Mümessillik ve Dış Ticaret Ltd. Şti.",
+  "GARANTİ BBVA",
+  "IBAN: TR28 0006 2001 1820 0006 2974 64"
+].join("\n");
 </script>
 
 <style scoped>

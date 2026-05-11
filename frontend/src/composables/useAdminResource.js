@@ -1,4 +1,4 @@
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 
 import { createResource, deleteResource, listResource, updateResource } from "../api/resources";
 import { getErrorMessage } from "../utils/errors";
@@ -19,6 +19,7 @@ export function useAdminResource(config) {
   const error = ref("");
   const success = ref("");
   const form = reactive(createInitialForm());
+  const initialLoading = computed(() => fetching.value && !items.value.length);
 
   function resetForm() {
     Object.assign(form, createInitialForm());
@@ -95,6 +96,7 @@ export function useAdminResource(config) {
     form,
     loading,
     fetching,
+    initialLoading,
     error,
     success,
     resetForm,

@@ -25,6 +25,13 @@ const COMPANY_LINES = [
   "info@tum-ex.com  |  +90 530 712 4897"
 ];
 
+function normalizeMultilineText(value) {
+  return String(value ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+}
+
 const REGULAR_FONT = fileURLToPath(new URL("../../assets/fonts/Verdana.ttf", import.meta.url));
 const BOLD_FONT = fileURLToPath(new URL("../../assets/fonts/Verdana-Bold.ttf", import.meta.url));
 const LOGO_PATH = fileURLToPath(new URL("../../assets/tumex-logo.png", import.meta.url));
@@ -46,19 +53,41 @@ function formatCurrency(value) {
   }).format(Number(value || 0));
 }
 
-function formatOfferCurrency(value) {
+function formatCurrencyByCode(value, currencyCode = "USD") {
+  if (currencyCode === "TRY") {
+    const amount = Number(value || 0);
+    const formattedNumber = new Intl.NumberFormat("tr-TR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+    return `TL ${formattedNumber}`;
+  }
+
+  return new Intl.NumberFormat(currencyCode === "TRY" ? "tr-TR" : "en-US", {
+    style: "currency",
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(Number(value || 0));
+}
+
+function formatOfferCurrency(value, currencyCode = "USD") {
   const amount = Number(value || 0);
 
+  if (currencyCode === "TRY") {
+    return formatCurrencyByCode(amount, "TRY");
+  }
+
   if (Number.isInteger(amount)) {
-    return `${new Intl.NumberFormat("en-US", {
+    return `${new Intl.NumberFormat(currencyCode === "TRY" ? "tr-TR" : "en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currencyCode,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount)}.-`;
   }
 
-  return formatCurrency(amount);
+  return formatCurrencyByCode(amount, currencyCode);
 }
 
 function formatNumber(value, suffix = "") {
@@ -159,6 +188,18 @@ function addDays(value, days) {
 }
 
 function buildItems(quote) {
+  if (quote.documentType === "service_proforma") {
+    return [
+      {
+        code: "SERVİS",
+        name: quote.serviceDescription || "Yapılacak iş",
+        quantity: "1",
+        unitPrice: formatCurrencyByCode(quote.grandTotalUsd, quote.currencyCode),
+        amount: formatCurrencyByCode(quote.grandTotalUsd, quote.currencyCode)
+      }
+    ];
+  }
+
   const items = [
     {
       code: quote.machineModelSnapshot,
@@ -258,6 +299,24 @@ function amountToWords(value) {
 
   const text = parts.join(" ve ");
   return `Yalnız ${text.charAt(0).toUpperCase() + text.slice(1)}.`;
+}
+
+function amountToWordsByCurrency(value, currencyCode = "USD") {
+  if (currencyCode === "TRY") {
+    const amount = Number(value || 0);
+    const lira = Math.floor(amount);
+    const kurus = Math.round((amount - lira) * 100);
+    const parts = [`${integerToWords(Math.max(lira, 0))} Türk Lirası`];
+
+    if (kurus > 0) {
+      parts.push(`${integerToWords(kurus)} kuruş`);
+    }
+
+    const text = parts.join(" ve ");
+    return `Yalnız ${text.charAt(0).toUpperCase() + text.slice(1)}.`;
+  }
+
+  return amountToWords(value);
 }
 
 function drawTumexLogo(doc, x, y) {
@@ -443,9 +502,10 @@ function drawMetaCard(doc, x, y, width, quote) {
     ["MÜŞTERİ #", buildCustomerCode(quote.customer.name)]
   ];
 
+  const documentTitle = quote.documentType === "service_proforma" ? "Proforma Fatura" : "TEKLİF";
   doc.font(BOLD_FONT).fontSize(17).fillColor("#111111");
-  const titleWidth = doc.widthOfString("TEKLİF");
-  doc.text("TEKLİF", x + width - titleWidth, titleY, { lineBreak: false });
+  const titleWidth = doc.widthOfString(documentTitle);
+  doc.text(documentTitle, x + width - titleWidth, titleY, { lineBreak: false });
 
   doc.save();
   doc.rect(valueX, tableY, valueWidth, rowHeight * rows.length).fillAndStroke(COLORS.panel, COLORS.border);
@@ -493,8 +553,9 @@ function drawTable(doc, x, y, width, items) {
 
   doc.rect(x, y, width, 24).fillAndStroke(COLORS.panelAlt, COLORS.border);
   doc.font(BOLD_FONT).fontSize(8.5).fillColor(COLORS.brandDark);
-  doc.text("Model", columnX.code, y + 8, { lineBreak: false });
-  doc.text("Ürün Adı", columnX.name, y + 8, { lineBreak: false });
+  const isServiceProforma = items.length === 1 && items[0].code === "SERVİS";
+  doc.text(isServiceProforma ? "Tür" : "Model", columnX.code, y + 8, { lineBreak: false });
+  doc.text(isServiceProforma ? "Yapılacak İş" : "Ürün Adı", columnX.name, y + 8, { lineBreak: false });
   doc.text("Miktar", columnX.qty, y + 8, { lineBreak: false });
   doc.text("Birim Fiyat", columnX.unitPrice, y + 8, { lineBreak: false });
   doc.text("Tutar", columnX.amount, y + 8, { lineBreak: false });
@@ -542,7 +603,8 @@ function drawFooter(doc, quote) {
   doc.font(REGULAR_FONT).fontSize(8).fillColor(COLORS.muted);
   doc.text(`${quote.customer.name} için hazırlandı`, PAGE_MARGIN, PAGE_HEIGHT - 44, { lineBreak: false });
 
-  const footerText = `Teklif ${quote.quoteCode}`;
+  const footerLabel = quote.documentType === "service_proforma" ? "Proforma Fatura" : "Teklif";
+  const footerText = `${footerLabel} ${quote.quoteCode}`;
   doc.text(footerText, PAGE_WIDTH - PAGE_MARGIN - doc.widthOfString(footerText), PAGE_HEIGHT - 44, { lineBreak: false });
 }
 
@@ -608,28 +670,38 @@ function buildPdfBuffer(quote) {
   const tableBottomY = drawTable(doc, PAGE_MARGIN, attentionBottomY + 18, CONTENT_WIDTH, buildItems(quote));
 
   const totalsY = tableBottomY + 12;
+  const totalValueWidth = quote.currencyCode === "TRY" ? 96 : 60;
+  const totalLabelWidth = 126;
+  const totalValueX = PAGE_MARGIN + CONTENT_WIDTH - totalValueWidth - 10;
+  const totalLabelX = totalValueX - totalLabelWidth - 8;
   doc.rect(PAGE_MARGIN, totalsY, CONTENT_WIDTH, 22).fillAndStroke(COLORS.white, COLORS.border);
-  doc.font(BOLD_FONT).fontSize(10).fillColor("#111111").text("GENEL TOPLAM", PAGE_MARGIN + CONTENT_WIDTH - 184, totalsY + 6, {
-    width: 110,
+  doc.font(BOLD_FONT).fontSize(10).fillColor("#111111").text("GENEL TOPLAM", totalLabelX, totalsY + 6, {
+    width: totalLabelWidth,
     align: "right",
     lineBreak: false
   });
-  doc.font(BOLD_FONT).fontSize(10).fillColor("#111111").text(formatOfferCurrency(quote.grandTotalUsd), PAGE_MARGIN + CONTENT_WIDTH - 68, totalsY + 6, {
-    width: 60,
+  doc.font(BOLD_FONT).fontSize(10).fillColor("#111111").text(formatOfferCurrency(quote.grandTotalUsd, quote.currencyCode), totalValueX, totalsY + 6, {
+    width: totalValueWidth,
     align: "right",
     lineBreak: false
   });
 
   const wordsY = totalsY + 22;
   doc.rect(PAGE_MARGIN, wordsY, CONTENT_WIDTH, 22).fillAndStroke(COLORS.white, COLORS.border);
-  doc.font(REGULAR_FONT).fontSize(8.7).fillColor("#111111").text(amountToWords(quote.grandTotalUsd), PAGE_MARGIN + 10, wordsY + 6, {
+  doc.font(REGULAR_FONT).fontSize(8.7).fillColor("#111111").text(amountToWordsByCurrency(quote.grandTotalUsd, quote.currencyCode), PAGE_MARGIN + 10, wordsY + 6, {
     width: CONTENT_WIDTH - 20,
     align: "right",
     lineBreak: false
   });
 
   const notesY = wordsY + 30;
-  const notesHeight = 126;
+  const notesText = sanitizeText(quote.otherTerms);
+  const notesTextWidth = CONTENT_WIDTH - 16;
+  const notesTextOptions = { width: notesTextWidth, lineGap: 2 };
+  const notesTextHeight = notesText
+    ? doc.font(REGULAR_FONT).fontSize(8.8).heightOfString(notesText, notesTextOptions)
+    : 0;
+  const notesHeight = Math.max(48, 28 + notesTextHeight + 10);
   doc.rect(PAGE_MARGIN, notesY, CONTENT_WIDTH, notesHeight).fillAndStroke(COLORS.white, COLORS.border);
   doc.font(BOLD_FONT).fontSize(11).fillColor("#111111").text("Diğer Şartlar", PAGE_MARGIN + 6, notesY + 6, {
     lineBreak: false
@@ -641,13 +713,38 @@ function buildPdfBuffer(quote) {
     .lineTo(PAGE_MARGIN + CONTENT_WIDTH, notesY + 20)
     .stroke();
 
-  if (sanitizeText(quote.otherTerms)) {
+  if (notesText) {
     doc.font(REGULAR_FONT).fontSize(8.8).fillColor("#111111").text(
-      sanitizeText(quote.otherTerms),
+      notesText,
       PAGE_MARGIN + 8,
       notesY + 28,
-      { width: CONTENT_WIDTH - 16, lineGap: 2 }
+      notesTextOptions
     );
+  }
+
+  if (quote.documentType === "service_proforma") {
+    const bankY = notesY + notesHeight + 12;
+    const bankHeight = 86;
+    doc.rect(PAGE_MARGIN, bankY, CONTENT_WIDTH, bankHeight).fillAndStroke(COLORS.white, COLORS.border);
+    doc.font(BOLD_FONT).fontSize(11).fillColor("#111111").text("Banka Detayları", PAGE_MARGIN + 6, bankY + 6, {
+      lineBreak: false
+    });
+    doc
+      .strokeColor(COLORS.border)
+      .lineWidth(0.8)
+      .moveTo(PAGE_MARGIN, bankY + 20)
+      .lineTo(PAGE_MARGIN + CONTENT_WIDTH, bankY + 20)
+      .stroke();
+
+    const bankDetails = normalizeMultilineText(quote.bankDetails);
+    if (bankDetails) {
+      doc.font(REGULAR_FONT).fontSize(8.8).fillColor("#111111").text(
+        bankDetails,
+        PAGE_MARGIN + 8,
+        bankY + 28,
+        { width: CONTENT_WIDTH - 16, lineGap: 2 }
+      );
+    }
   }
 
   drawFooter(doc, quote);

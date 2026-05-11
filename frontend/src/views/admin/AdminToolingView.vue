@@ -2,6 +2,10 @@
   <section class="resource-shell">
     <PageIntro title="Takımlar" description="V-kalıp ve takım yapılandırmasını yönetin." />
 
+    <div v-if="initialLoading" class="loading-state page-loading-state">
+      Takım verileri yükleniyor...
+    </div>
+
     <div class="resource-grid">
       <article class="card resource-card stack">
         <div>
@@ -99,6 +103,7 @@ const {
   form,
   loading,
   fetching,
+  initialLoading,
   error,
   success,
   resetForm,

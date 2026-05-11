@@ -2,6 +2,10 @@
   <section class="resource-shell">
     <PageIntro title="Teklifler" description="Teklifleri görüntüleyin, inceleyin, silin ve dışa aktarın." />
 
+    <div v-if="initialLoading" class="loading-state page-loading-state">
+      Teklif verileri yükleniyor...
+    </div>
+
     <div class="quotes-layout">
       <article class="card resource-card table-card quotes-list-card">
         <div class="toolbar">
@@ -27,8 +31,8 @@
           <thead>
             <tr>
               <th>Kod</th>
-              <th>Malzeme</th>
-              <th>Makine</th>
+              <th>Tür</th>
+              <th>Açıklama</th>
               <th>Toplam</th>
               <th>Tarih</th>
               <th>İşlemler</th>
@@ -37,9 +41,9 @@
           <tbody>
             <tr v-for="quote in quotes" :key="quote.id">
               <td>{{ quote.quoteCode }}</td>
-              <td>{{ quote.materialNameSnapshot }}</td>
-              <td>{{ quote.machineModelSnapshot }}</td>
-              <td>{{ formatCurrency(quote.grandTotalUsd) }}</td>
+              <td>{{ getDocumentTypeLabel(quote) }}</td>
+              <td>{{ getListDescription(quote) }}</td>
+              <td>{{ formatQuoteCurrency(quote.grandTotalUsd, quote.currencyCode) }}</td>
               <td>{{ formatDate(quote.createdAt) }}</td>
               <td class="resource-actions">
                 <button
@@ -100,37 +104,49 @@
                 <h4 class="quote-sheet-title">{{ selectedQuote.quoteCode }}</h4>
                 <p class="quote-sheet-subtitle">{{ selectedQuote.customer.name }}</p>
               </div>
-              <div class="quote-sheet-total">{{ formatCurrency(selectedQuote.grandTotalUsd) }}</div>
+              <div class="quote-sheet-total">{{ formatQuoteCurrency(selectedQuote.grandTotalUsd, selectedQuote.currencyCode) }}</div>
             </div>
 
             <dl class="quote-facts">
               <div class="quote-fact-row">
+                <dt>Belge Türü</dt>
+                <dd>{{ getDocumentTypeLabel(selectedQuote) }}</dd>
+              </div>
+              <div v-if="selectedQuote.documentType !== 'service_proforma'" class="quote-fact-row">
                 <dt>Malzeme</dt>
                 <dd>{{ selectedQuote.materialNameSnapshot }}</dd>
               </div>
-              <div class="quote-fact-row">
+              <div v-if="selectedQuote.documentType !== 'service_proforma'" class="quote-fact-row">
                 <dt>Kalınlık</dt>
                 <dd>{{ formatNumber(selectedQuote.thicknessMm, " mm") }}</dd>
               </div>
-              <div class="quote-fact-row">
+              <div v-if="selectedQuote.documentType !== 'service_proforma'" class="quote-fact-row">
                 <dt>Büküm Boyu</dt>
                 <dd>{{ formatNumber(selectedQuote.bendLengthMm, " mm") }}</dd>
               </div>
-              <div class="quote-fact-row">
+              <div v-if="selectedQuote.documentType !== 'service_proforma'" class="quote-fact-row">
                 <dt>Makine</dt>
                 <dd>{{ selectedQuote.machineModelSnapshot }}</dd>
               </div>
-              <div class="quote-fact-row">
+              <div v-else class="quote-fact-row">
+                <dt>Yapılacak İş</dt>
+                <dd>{{ selectedQuote.serviceDescription || "-" }}</dd>
+              </div>
+              <div v-if="selectedQuote.documentType !== 'service_proforma'" class="quote-fact-row">
                 <dt>Takım</dt>
                 <dd>{{ selectedQuote.toolingNameSnapshot || "-" }}</dd>
               </div>
               <div class="quote-fact-row">
-                <dt>Makine Fiyatı</dt>
-                <dd>{{ formatCurrency(selectedQuote.machinePriceUsd) }}</dd>
+                <dt>{{ selectedQuote.documentType === "service_proforma" ? "Tutar" : "Makine Fiyatı" }}</dt>
+                <dd>{{ formatQuoteCurrency(selectedQuote.machinePriceUsd, selectedQuote.currencyCode) }}</dd>
               </div>
-              <div class="quote-fact-row">
+              <div v-if="selectedQuote.documentType !== 'service_proforma'" class="quote-fact-row">
                 <dt>Opsiyon Toplamı</dt>
-                <dd>{{ formatCurrency(selectedQuote.optionsTotalUsd) }}</dd>
+                <dd>{{ formatQuoteCurrency(selectedQuote.optionsTotalUsd, selectedQuote.currencyCode) }}</dd>
+              </div>
+              <div v-else class="quote-fact-row">
+                <dt>Para Birimi</dt>
+                <dd>TL</dd>
               </div>
               <div class="quote-fact-row">
                 <dt>Oluşturulma</dt>
@@ -153,10 +169,17 @@
             </div>
           </section>
 
+          <section v-if="selectedQuote.documentType === 'service_proforma'" class="quote-detail-section">
+            <h4 class="section-title quote-subsection-title">Banka Detayları</h4>
+            <div class="quote-note quote-note-multiline">
+              {{ selectedQuote.bankDetails || "-" }}
+            </div>
+          </section>
+
           <section class="quote-detail-section">
             <h4 class="section-title quote-subsection-title">Seçilen Opsiyonlar</h4>
 
-            <div v-if="selectedQuote.selectedOptions.length" class="quote-option-list">
+            <div v-if="selectedQuote.documentType !== 'service_proforma' && selectedQuote.selectedOptions.length" class="quote-option-list">
               <div
                 v-for="option in selectedQuote.selectedOptions"
                 :key="`${option.code}-${option.name}`"
@@ -208,6 +231,7 @@ const downloadingId = ref("");
 const error = ref("");
 const success = ref("");
 const canDeleteQuotes = computed(() => auth.user?.role === "admin");
+const initialLoading = computed(() => loadingList.value && !quotes.value.length);
 
 function formatDate(value) {
   if (!value) {
@@ -215,6 +239,20 @@ function formatDate(value) {
   }
 
   return new Date(value).toLocaleString();
+}
+
+function formatQuoteCurrency(value, currencyCode = "USD") {
+  return formatCurrency(value, currencyCode);
+}
+
+function getDocumentTypeLabel(quote) {
+  return quote.documentType === "service_proforma" ? "Servis Proforma" : "Standart Teklif";
+}
+
+function getListDescription(quote) {
+  return quote.documentType === "service_proforma"
+    ? quote.serviceDescription || "-"
+    : quote.machineModelSnapshot;
 }
 
 async function loadQuotes() {
@@ -381,6 +419,10 @@ onMounted(loadQuotes);
   color: var(--ink-strong);
   line-height: 1.6;
   border-bottom: 1px solid rgba(191, 205, 219, 0.38);
+}
+
+.quote-note-multiline {
+  white-space: pre-line;
 }
 
 .quote-option-list {
