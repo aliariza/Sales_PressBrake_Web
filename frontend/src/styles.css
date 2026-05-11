@@ -387,6 +387,39 @@ textarea {
   font-weight: 600;
 }
 
+.page-fade-enter-active,
+.page-fade-leave-active,
+.page-slide-enter-active,
+.page-slide-leave-active {
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    filter 220ms ease;
+}
+
+.page-fade-enter-from,
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+  filter: blur(2px);
+}
+
+.page-slide-enter-from,
+.page-slide-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+  filter: blur(3px);
+}
+
+.page-fade-enter-to,
+.page-fade-leave-from,
+.page-slide-enter-to,
+.page-slide-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
 .loading-spinner {
   width: 28px;
   height: 28px;

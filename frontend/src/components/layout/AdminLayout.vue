@@ -26,7 +26,11 @@
       </aside>
 
       <main class="card content">
-        <router-view />
+        <router-view v-slot="{ Component, route }">
+          <Transition name="page-slide" mode="out-in">
+            <component :is="Component" :key="route.fullPath" />
+          </Transition>
+        </router-view>
       </main>
     </div>
   </div>
