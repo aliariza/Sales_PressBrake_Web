@@ -9,6 +9,7 @@
       >
         <h3 class="confirm-title">{{ title }}</h3>
         <p class="confirm-message">{{ message }}</p>
+        <p class="confirm-warning">Bu işlem geri alınamaz.</p>
 
         <div class="confirm-actions">
           <button class="button-secondary" type="button" @click="cancel">
@@ -93,6 +94,12 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--ink-soft);
   line-height: 1.6;
+}
+
+.confirm-warning {
+  margin: 12px 0 0;
+  color: var(--danger);
+  font-weight: 600;
 }
 
 .confirm-actions {
