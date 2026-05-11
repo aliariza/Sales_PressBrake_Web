@@ -208,6 +208,7 @@ import { listResource } from "../../api/resources";
 import IconGlyph from "../../components/shared/IconGlyph.vue";
 import LoadingState from "../../components/shared/LoadingState.vue";
 import PageIntro from "../../components/shared/PageIntro.vue";
+import { openConfirmDialog } from "../../composables/useConfirmDialog";
 import { useAuthStore } from "../../stores/auth";
 import { getErrorMessage } from "../../utils/errors";
 import { formatCurrency, formatNumber } from "../../utils/formatters";
@@ -274,7 +275,15 @@ async function showQuote(quote) {
 }
 
 async function removeQuote(quote) {
-  if (!window.confirm(`${quote.quoteCode} kodlu teklif silinsin mi?`)) {
+  const confirmed = await openConfirmDialog({
+    title: "Teklif Silinsin mi?",
+    message: `${quote.quoteCode} kodlu teklif silinsin mi?`,
+    confirmText: "Sil",
+    cancelText: "İptal",
+    tone: "danger"
+  });
+
+  if (!confirmed) {
     return;
   }
 

@@ -1,6 +1,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 
 import { createResource, deleteResource, listResource, updateResource } from "../api/resources";
+import { openConfirmDialog } from "./useConfirmDialog";
 import { getErrorMessage } from "../utils/errors";
 
 export function useAdminResource(config) {
@@ -72,7 +73,15 @@ export function useAdminResource(config) {
   }
 
   async function removeItem(item) {
-    if (!window.confirm(`${getDeleteLabel(item)} silinsin mi?`)) {
+    const confirmed = await openConfirmDialog({
+      title: "Silme Onayı",
+      message: `${getDeleteLabel(item)} silinsin mi?`,
+      confirmText: "Sil",
+      cancelText: "İptal",
+      tone: "danger"
+    });
+
+    if (!confirmed) {
       return;
     }
 
